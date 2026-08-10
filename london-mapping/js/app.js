@@ -11,6 +11,7 @@ import * as anomaliesPage from "./pages/anomalies.js";
 import * as setupPage from "./pages/setup.js";
 import * as signinPage from "./pages/signin.js";
 import { getAccount } from "./auth.js";
+import { escapeHtml } from "./ui.js";
 
 const NAV_ITEMS = [
   { path: "/dashboard", label: "Dashboard" },
@@ -24,12 +25,19 @@ const NAV_ITEMS = [
   { path: "/setup", label: "Setup" },
 ];
 
+// Setup is a going-live tool, not a daily one. It drops out of the sidebar
+// once all three config values are filled in, so the team never sees it — the
+// route stays reachable at #/setup for diagnostics.
+function navItems() {
+  return NAV_ITEMS.filter((item) => item.path !== "/setup" || isPreviewMode());
+}
+
 function shellHtml() {
   return `
     <div class="app-shell">
       <nav class="sidebar">
         <div class="brand">NEU London<small>Project Mapping</small></div>
-        ${NAV_ITEMS.map((item) => `<a class="nav-link" data-path="${item.path}" href="#${item.path}">${item.label}</a>`).join("")}
+        ${navItems().map((item) => `<a class="nav-link" data-path="${item.path}" href="#${item.path}">${item.label}</a>`).join("")}
         <div class="sidebar-footer">${isPreviewMode() ? "Preview mode — sample data" : ""}</div>
       </nav>
       <main class="main">
@@ -47,11 +55,38 @@ function updateActiveNav(path) {
   });
 }
 
+// The sign-in library is fetched from a CDN, so a corporate network that
+// blocks it (or a CDN outage) would otherwise leave a blank page with no
+// explanation — the worst possible failure on go-live day. Say what happened
+// and where to look instead.
+function renderAuthFailure(app, err) {
+  app.innerHTML = `
+    <div class="signin-wrap">
+      <h1>Couldn't load sign-in</h1>
+      <p>The Microsoft sign-in library is fetched from an external site
+      (esm.sh), and it didn't load. That's usually a network blocking it, or a
+      temporary outage — it isn't a problem with your account or the workbook.</p>
+      <p class="muted-cell"><code>${escapeHtml(err?.message || String(err))}</code></p>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="retry-auth">Try again</button>
+        <a class="btn" href="#/setup">Open setup diagnostics</a>
+      </div>
+    </div>`;
+  app.querySelector("#retry-auth")?.addEventListener("click", () => window.location.reload());
+}
+
 async function boot() {
   const app = document.getElementById("app");
 
   if (!isPreviewMode()) {
-    const account = await getAccount();
+    let account;
+    try {
+      account = await getAccount();
+    } catch (err) {
+      console.error("[auth] could not initialise sign-in", err);
+      renderAuthFailure(app, err);
+      return;
+    }
     if (!account) {
       await signinPage.render(app);
       return;

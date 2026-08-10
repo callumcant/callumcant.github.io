@@ -1,7 +1,7 @@
 import { loadAll, getState, addFieldNote } from "../data/store.js";
 import { buildSchoolLevel } from "../data/rollups.js";
 import { FIELD_NOTE_LEVELS } from "../config.js";
-import { renderDataTable, formatDate, escapeHtml } from "../ui.js";
+import { formatDate, escapeHtml } from "../ui.js";
 import { navigate } from "../router.js";
 
 function subjectLabel(note, schoolsByUrn) {
@@ -54,21 +54,45 @@ export async function renderList(container, params = {}) {
         ${FIELD_NOTE_LEVELS.map((l) => `<option value="${l}" ${l === pinnedLevel ? "selected" : ""}>${l}</option>`).join("")}
       </select>
     </div>
-    <div class="card"><div id="notes-table"></div></div>
+    <div class="card">
+      <div class="notes-toolbar">
+        <span class="result-count" id="note-count"></span>
+        <button type="button" class="btn btn-small" id="expand-all">Expand all</button>
+      </div>
+      <div id="notes-list"></div>
+    </div>
   `;
 
   const searchEl = container.querySelector("#note-search");
   const levelEl = container.querySelector("#note-level-filter");
-  const tableEl = container.querySelector("#notes-table");
+  const listEl = container.querySelector("#notes-list");
+  const countEl = container.querySelector("#note-count");
 
-  const columns = [
-    { key: "date", label: "Date", render: (r) => formatDate(r.date) },
-    { key: "level", label: "Level" },
-    { key: "subject", label: "Subject", render: (r) => `<a class="row-link" href="${subjectLink(r, schoolsByUrn)}">${escapeHtml(subjectLabel(r, schoolsByUrn))}</a>` },
-    { key: "title", label: "Title" },
-    { key: "note", label: "Note", wrap: true, render: (r) => escapeHtml(r.note.length > 140 ? r.note.slice(0, 140) + "…" : r.note) },
-    { key: "author", label: "Author" },
-  ];
+  // A note's body is the point of it, and a table column can't hold one
+  // readably. Native <details> gives an expandable row with keyboard support
+  // and no JavaScript: the closed row carries who and when, the open one
+  // carries what was actually said.
+  function noteHtml(n) {
+    const label = subjectLabel(n, schoolsByUrn);
+    return `
+      <details class="note-item">
+        <summary>
+          <span class="note-item-main">
+            <strong>${escapeHtml(n.title || "(untitled note)")}</strong>
+            <span class="note-item-subject">${escapeHtml(n.level)} · ${escapeHtml(label)}</span>
+          </span>
+          <span class="note-item-meta">${escapeHtml(formatDate(n.date))} · ${escapeHtml(n.author || "—")}</span>
+        </summary>
+        <div class="note-item-body">
+          ${n.note
+            ? escapeHtml(n.note).replace(/\n/g, "<br />")
+            : `<span class="muted-cell">No detail recorded.</span>`}
+          <div class="note-item-actions">
+            <a href="${subjectLink(n, schoolsByUrn)}">Open ${escapeHtml(label)} &rarr;</a>
+          </div>
+        </div>
+      </details>`;
+  }
 
   function applyFilters() {
     const q = searchEl.value.trim().toLowerCase();
@@ -78,10 +102,20 @@ export async function renderList(container, params = {}) {
       if (q && !`${n.title} ${n.note} ${subjectLabel(n, schoolsByUrn)}`.toLowerCase().includes(q)) return false;
       return true;
     });
-    renderDataTable(tableEl, columns, filtered, { defaultSort: "date", defaultDir: "desc" });
+    listEl.innerHTML = filtered.length
+      ? filtered.map(noteHtml).join("")
+      : `<div class="empty-state">No notes match.</div>`;
+    countEl.textContent = `${filtered.length} of ${notes.length} notes`;
   }
 
   [searchEl, levelEl].forEach((el) => el.addEventListener("input", applyFilters));
+
+  container.querySelector("#expand-all")?.addEventListener("click", (e) => {
+    const anyClosed = listEl.querySelector("details:not([open])");
+    listEl.querySelectorAll("details").forEach((d) => { d.open = !!anyClosed; });
+    e.target.textContent = anyClosed ? "Collapse all" : "Expand all";
+  });
+
   applyFilters();
 }
 

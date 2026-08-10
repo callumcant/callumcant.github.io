@@ -295,6 +295,29 @@ export async function renderDetail(container, { urn }) {
       <a class="btn" href="#/notes/new?level=School&subject=${school.urn}">+ Add note</a>
     </div>
 
+    <div class="section-title">Activity log</div>
+    <div class="card">
+      ${meetings.length === 0 && recruited.length === 0
+        ? `<div class="empty-state">Nothing logged for this school yet.</div>`
+        : `<dl class="stat-list">
+            ${meetings.map((m) => statRow("Meeting", formatDate(m.date) + (m.loggedBy ? ` · ${escapeHtml(m.loggedBy)}` : ""))).join("")}
+            ${recruited.map((r) => statRow("Rep recruited", `${escapeHtml(r.repName || "(name not recorded)")} — ${formatDate(r.date)}` + (r.loggedBy ? ` · logged by ${escapeHtml(r.loggedBy)}` : ""))).join("")}
+          </dl>`}
+    </div>
+
+    <div class="section-title">Field notes</div>
+    <div class="card">
+      ${notes.length === 0 ? `<div class="empty-state">No notes for this school yet.</div>` : notes.map((n) => `
+        <div class="note-card">
+          <strong>${escapeHtml(n.title)}</strong>
+          <div>${escapeHtml(n.note)}</div>
+          <div class="note-meta">${formatDate(n.date)} · ${escapeHtml(n.author)}</div>
+        </div>`).join("")}
+      <div class="btn-row">
+        <a class="btn" href="#/notes/new?level=School&subject=${school.urn}">+ Add note</a>
+        ${notes.length ? `<a class="btn" href="#/notes?level=School&subject=${school.urn}">View in notes</a>` : ""}
+      </div>
+    </div>
     <div class="section-title">Headline</div>
     <div class="tile-grid">
       <div class="tile"><div class="tile-label">Headcount</div><div class="tile-value">${formatNumber(school.headcountTotal)}</div></div>
@@ -379,29 +402,6 @@ export async function renderDetail(container, { urn }) {
       ${statRow("Membership data imported", formatDate(school.importDate))}
     </dl></div>
 
-    <div class="section-title">Activity log</div>
-    <div class="card">
-      ${meetings.length === 0 && recruited.length === 0
-        ? `<div class="empty-state">Nothing logged for this school yet.</div>`
-        : `<dl class="stat-list">
-            ${meetings.map((m) => statRow("Meeting", formatDate(m.date) + (m.loggedBy ? ` · ${escapeHtml(m.loggedBy)}` : ""))).join("")}
-            ${recruited.map((r) => statRow("Rep recruited", `${escapeHtml(r.repName || "(name not recorded)")} — ${formatDate(r.date)}` + (r.loggedBy ? ` · logged by ${escapeHtml(r.loggedBy)}` : ""))).join("")}
-          </dl>`}
-    </div>
-
-    <div class="section-title">Field notes</div>
-    <div class="card">
-      ${notes.length === 0 ? `<div class="empty-state">No notes for this school yet.</div>` : notes.map((n) => `
-        <div class="note-card">
-          <strong>${escapeHtml(n.title)}</strong>
-          <div>${escapeHtml(n.note)}</div>
-          <div class="note-meta">${formatDate(n.date)} · ${escapeHtml(n.author)}</div>
-        </div>`).join("")}
-      <div class="btn-row">
-        <a class="btn" href="#/notes/new?level=School&subject=${school.urn}">+ Add note</a>
-        ${notes.length ? `<a class="btn" href="#/notes?level=School&subject=${school.urn}">View in notes</a>` : ""}
-      </div>
-    </div>
   `;
 
   // Logging opens a small form rather than writing on a single click: a
