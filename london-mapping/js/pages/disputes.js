@@ -70,6 +70,14 @@ function issueCheckboxes(selected = []) {
   ).join("");
 }
 
+// Stored as a fraction, edited as a percentage. Rounding to 1dp keeps
+// floating-point noise out of the input (0.58 * 100 is 57.99999999999999),
+// which would otherwise be written straight back to the workbook on save.
+function fractionToPercentInput(fraction) {
+  if (fraction == null) return "";
+  return Math.round(fraction * 1000) / 10;
+}
+
 function optionsHtml(list, selected) {
   return list.map((v) => `<option value="${escapeHtml(v)}" ${v === selected ? "selected" : ""}>${escapeHtml(v)}</option>`).join("");
 }
@@ -84,8 +92,10 @@ export async function renderForm(container, { id }) {
   }
   const d = existing || {
     employer: "", mat: "", branch: "", live: "Yes", schoolsCount: 1, rorIo: "ROR",
-    staffResponsible: "", issues: [], dateIndicativeOpens: "", indicativePercent: "",
-    membershipAtIndicative: "", formalBallotPercent: "", dateOfResolution: "",
+    // The numeric ballot fields default to null, not "": the inputs below test
+    // `!= null`, and "" * 100 would render a misleading 0 on a blank form.
+    staffResponsible: "", issues: [], dateIndicativeOpens: "", indicativePercent: null,
+    membershipAtIndicative: null, formalBallotPercent: null, dateOfResolution: "",
     outcome: "", totalStrikeDays: 0,
   };
 
@@ -142,7 +152,7 @@ export async function renderForm(container, { id }) {
         </div>
         <div class="field">
           <label>Indicative % (Yes)</label>
-          <input name="indicativePercent" type="number" min="0" max="100" step="0.1" value="${d.indicativePercent != null ? d.indicativePercent * 100 : ""}" />
+          <input name="indicativePercent" type="number" min="0" max="100" step="0.1" value="${fractionToPercentInput(d.indicativePercent)}" />
         </div>
         <div class="field">
           <label>Membership at indicative</label>
@@ -150,7 +160,7 @@ export async function renderForm(container, { id }) {
         </div>
         <div class="field">
           <label>Formal ballot % (Yes)</label>
-          <input name="formalBallotPercent" type="number" min="0" max="100" step="0.1" value="${d.formalBallotPercent != null ? d.formalBallotPercent * 100 : ""}" />
+          <input name="formalBallotPercent" type="number" min="0" max="100" step="0.1" value="${fractionToPercentInput(d.formalBallotPercent)}" />
         </div>
         <div class="field">
           <label>Date of resolution</label>

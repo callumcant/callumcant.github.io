@@ -1,14 +1,8 @@
 /* NEU Organising Dashboard — design tokens
    Derived from the NEU Design System (colors.css, typography.css, spacing.css).
-
-   Dark mode is NOT defined by the source design system — the dark values below
-   are derived (see NEUDashboardDesignSpec.md for rationale + contrast math).
-
-   The source tokens file switched on [data-theme="dark"] alone. Here the dark
-   block is declared twice so the site follows the viewer's OS setting by
-   default (which is how it already behaved) while still letting an explicit
-   [data-theme] win in both directions — the :not([data-theme="light"]) guard
-   lets a light stamp beat OS-dark. Keep the two dark blocks in sync. */
+   Dark mode is NOT defined by the source design system — the dark-mode block
+   below is derived by this spec (see accompanying .md for rationale + contrast math).
+   Toggle via [data-theme="dark"] on <html> or swap for @media (prefers-color-scheme: dark). */
 
 @font-face{font-family:'Rubik';font-style:normal;font-weight:400;font-display:swap;src:url('https://cdn.jsdelivr.net/fontsource/fonts/rubik@latest/latin-400-normal.woff2') format('woff2')}
 @font-face{font-family:'Rubik';font-style:normal;font-weight:500;font-display:swap;src:url('https://cdn.jsdelivr.net/fontsource/fonts/rubik@latest/latin-500-normal.woff2') format('woff2')}
@@ -16,8 +10,6 @@
 @font-face{font-family:'Rubik';font-style:normal;font-weight:700;font-display:swap;src:url('https://cdn.jsdelivr.net/fontsource/fonts/rubik@latest/latin-700-normal.woff2') format('woff2')}
 
 :root{
-  color-scheme: light;
-
   /* ---- Typography ---- */
   --font-ui:'Rubik', Arial, Helvetica, sans-serif;
   --font-fallback:Arial, Helvetica, sans-serif;
@@ -28,7 +20,6 @@
   --text-base:16px;
   --text-md:18px;
   --text-lg:22px;
-  --text-xl:28px;     /* page heading */
   --text-2xl:36px;    /* stat figures */
   --text-3xl:48px;    /* large stat figures */
 
@@ -61,10 +52,10 @@
 
   /* ---- Light mode (source: NEU DS tokens, unmodified except where flagged) ---- */
   --surface-page:#F7F8F9;      /* EXTENSION: DS defines surface-page as pure white (marketing-site
-                                  assumption). For a dense admin UI, page bg is nudged to DS grey-50
-                                  so white cards read as raised without extra shadow. */
+                                   assumption). For a dense admin UI, page bg is nudged to DS grey-50
+                                   so white cards read as raised without extra shadow. */
   --surface-card:#FFFFFF;      /* DS surface-card */
-  --surface-sunken:#EEF1F2;    /* DS grey-100 — table headers, inset wells */
+  --surface-sunken:#EEF1F2;    /* DS grey-100 — table headers, code/inset wells */
   --surface-hover:#E4E8EA;     /* EXTENSION: interpolated grey-100→200, for row/item hover */
 
   --text-primary:#333F48;      /* DS neu-slate */
@@ -73,7 +64,7 @@
 
   --border:#D0D0CE;            /* DS border-default / grey-300 */
   --gridline:#DBE0E2;          /* EXTENSION: grey-200, lighter than --border so table rows read
-                                  quieter than card edges */
+                                   quieter than card edges */
 
   --accent:#009CA6;            /* DS color-primary (Pantone 320C turquoise) */
   --accent-hover:#00747C;      /* DS color-primary-hover */
@@ -91,49 +82,8 @@
   --focus-ring:0 0 0 3px color-mix(in oklch, #009CA6 35%, transparent);
 }
 
-/* ---- Dark mode (EXTENSION — not present in source design system; derived) ----
-   Declared once for the OS preference and once for an explicit toggle.
-   Any edit here must be made in BOTH blocks. */
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    color-scheme: dark;
-
-    --surface-page:#1B1F22;
-    --surface-card:#262B2F;
-    --surface-sunken:#14171A;
-    --surface-hover:#2F353A;
-
-    --text-primary:#F2F4F5;
-    --text-secondary:#9EA6AB;
-    --text-muted:#838A90;
-
-    --border:#383E43;
-    --gridline:#333A3F;
-
-    --accent:#009CA6;             /* unchanged — 4.98:1 vs dark page, fine as text/icon/border */
-    --accent-hover:#1BB2BC;       /* brightened one step for dark-surface hover legibility */
-    --accent-active:#00747C;
-    --accent-ink:#FFFFFF;
-
-    /* status text colours brightened to clear 4.5:1 against --surface-card (#262B2F);
-       *-bg are translucent tints of the LIGHT-mode hue, not the brightened text colour */
-    --color-success:#34C77B;      --color-success-bg:rgba(47,122,79,0.22);
-    --color-warning:#E8A33D;      --color-warning-bg:rgba(161,92,0,0.22);
-    --color-critical:#F4726A;     --color-critical-bg:rgba(179,38,30,0.22);
-    --color-info:#6E9AE0;         --color-info-bg:rgba(29,79,145,0.22);
-
-    /* slate-tinted shadows barely read on dark surfaces — kept for depth but elevation is
-       carried primarily by the --surface-page → --surface-card tonal step, not shadow */
-    --shadow-sm:0 1px 2px rgba(0,0,0,0.35);
-    --shadow-md:0 4px 12px rgba(0,0,0,0.40);
-    --shadow-lg:0 12px 28px rgba(0,0,0,0.45);
-    --focus-ring:0 0 0 3px color-mix(in oklch, #009CA6 45%, transparent);
-  }
-}
-
-:root[data-theme="dark"]{
-  color-scheme: dark;
-
+/* ---- Dark mode (EXTENSION — not present in source design system; derived here) ---- */
+[data-theme="dark"]{
   --surface-page:#1B1F22;
   --surface-card:#262B2F;
   --surface-sunken:#14171A;
@@ -146,16 +96,20 @@
   --border:#383E43;
   --gridline:#333A3F;
 
-  --accent:#009CA6;
-  --accent-hover:#1BB2BC;
+  --accent:#009CA6;             /* unchanged — 4.98:1 vs dark page, fine as text/icon/border */
+  --accent-hover:#1BB2BC;       /* brightened one step for dark-surface hover legibility */
   --accent-active:#00747C;
   --accent-ink:#FFFFFF;
 
+  /* status text colours brightened to clear 4.5:1 against --surface-card (#262B2F);
+     *-bg are translucent tints of the LIGHT-mode hue, not the brightened text colour */
   --color-success:#34C77B;      --color-success-bg:rgba(47,122,79,0.22);
   --color-warning:#E8A33D;      --color-warning-bg:rgba(161,92,0,0.22);
   --color-critical:#F4726A;     --color-critical-bg:rgba(179,38,30,0.22);
   --color-info:#6E9AE0;         --color-info-bg:rgba(29,79,145,0.22);
 
+  /* slate-tinted shadows barely read on dark surfaces — kept for depth but elevation is
+     carried primarily by the --surface-page → --surface-card tonal step, not shadow */
   --shadow-sm:0 1px 2px rgba(0,0,0,0.35);
   --shadow-md:0 4px 12px rgba(0,0,0,0.40);
   --shadow-lg:0 12px 28px rgba(0,0,0,0.45);

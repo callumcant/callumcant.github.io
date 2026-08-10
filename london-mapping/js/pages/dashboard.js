@@ -74,7 +74,7 @@ export async function render(container) {
 
     <div class="section-title">Longitudinal tracking</div>
     <div class="card">
-      <p style="color:var(--text-muted); margin:0;">Change vs. the previous period will appear here once there's more than one snapshot to compare against — same as the workbook's own placeholder rows for membership growth, density improvement, no-rep schools organised, member:rep ratio improvement, school meetings held, and reps trained.</p>
+      <p class="empty-state" style="text-align:left; padding:0;">Change vs. the previous period will appear here once there's more than one snapshot to compare against — same as the workbook's own placeholder rows for membership growth, density improvement, no-rep schools organised, member:rep ratio improvement, school meetings held, and reps trained.</p>
     </div>
   `;
 }

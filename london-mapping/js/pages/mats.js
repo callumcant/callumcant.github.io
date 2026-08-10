@@ -50,8 +50,8 @@ export async function renderDetail(container, { name }) {
 
     <div class="tile-grid">
       <div class="tile"><div class="tile-label">Schools</div><div class="tile-value">${mat.schoolCount}</div></div>
-      <div class="tile"><div class="tile-label">Boroughs present</div><div class="tile-value" style="font-size:16px;">${escapeHtml(mat.boroughsPresent.join(", "))}</div></div>
-      <div class="tile"><div class="tile-label">Phases</div><div class="tile-value" style="font-size:16px;">${escapeHtml(mat.phasesPresent.join(", "))}</div></div>
+      <div class="tile"><div class="tile-label">Boroughs present</div><div class="tile-value text-value">${escapeHtml(mat.boroughsPresent.join(", "))}</div></div>
+      <div class="tile"><div class="tile-label">Phases</div><div class="tile-value text-value">${escapeHtml(mat.phasesPresent.join(", "))}</div></div>
       <div class="tile"><div class="tile-label">Workforce</div><div class="tile-value">${formatNumber(mat.totalStaffHeadcount)}</div></div>
       <div class="tile"><div class="tile-label">Members</div><div class="tile-value">${formatNumber(mat.totalMembers)}</div></div>
       <div class="tile"><div class="tile-label">Density</div><div class="tile-value">${formatPercent(mat.trustDensity)}</div></div>

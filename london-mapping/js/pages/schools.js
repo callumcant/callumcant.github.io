@@ -84,7 +84,7 @@ export async function renderDetail(container, { urn }) {
       <h1>${escapeHtml(school.schoolName)}</h1>
       <div class="as-of">URN ${school.urn} · ${escapeHtml(school.postcode)}</div>
     </div>
-    <div style="margin-bottom:16px; color:var(--text-secondary); font-size:13.5px;">
+    <div class="detail-meta">
       ${escapeHtml(school.phase)} · <a href="#/branches/${encodeURIComponent(school.laName)}">${escapeHtml(school.laName)}</a>
       ${school.trust ? ` · <a href="#/mats/${encodeURIComponent(school.trust)}">${escapeHtml(school.trust)}</a>` : " · LA maintained / no MAT"}
       ${school.repCount === 0 ? ` · <span class="pill rag-amber">No rep</span>` : ""}
