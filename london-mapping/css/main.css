@@ -694,3 +694,45 @@ dialog.micro-form h2 {
 
 .plain-list { margin: 0; padding-left: var(--space-5); }
 .plain-list li { padding: 2px 0; }
+
+/* Dashboard live-dispute cards are links now */
+a.note-card-link { display: block; text-decoration: none; color: inherit; }
+a.note-card-link:hover { background: var(--surface-hover); }
+a.note-card-link strong { color: var(--accent); }
+
+/* Dispute school picker */
+.chip-list { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
+.chip-selected {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  background: color-mix(in oklch, var(--accent) 12%, transparent);
+  color: var(--text-primary);
+}
+.chip-selected button {
+  background: none; border: none; cursor: pointer; color: var(--text-secondary);
+  font-size: var(--text-2xs); padding: 0; line-height: 1;
+}
+.chip-selected button:hover { color: var(--color-critical); }
+.picker-results {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-1);
+  overflow: hidden;
+  background: var(--surface-card);
+}
+.picker-results[hidden] { display: none; }
+.picker-results button {
+  display: flex; justify-content: space-between; gap: var(--space-3);
+  width: 100%; text-align: left; padding: var(--space-2) var(--space-3);
+  background: none; border: none; cursor: pointer; color: var(--text-primary);
+  font-size: var(--text-sm);
+  border-bottom: var(--border-width) solid var(--gridline);
+}
+.picker-results button:last-child { border-bottom: none; }
+.picker-results button:hover { background: var(--surface-hover); }
+#school-picker.has-error { outline: 2px solid var(--color-critical); outline-offset: 4px; border-radius: var(--radius-sm); }
+
+/* Anomalies */
+.anomaly-row dt { padding-right: var(--space-3); }
+.anomaly-row dd { display: flex; justify-content: flex-end; }
+.legend-swatch.legend-dot-xs { width: 5px; height: 5px; }
+.legend-swatch.legend-dot-xl { width: 19px; height: 19px; }

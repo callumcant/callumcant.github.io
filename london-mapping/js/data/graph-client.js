@@ -91,9 +91,12 @@ async function getTableRows(tableName) {
 // Excel table name -> key on the app's state object.
 const TABLE_TO_STATE_KEY = {
   SourceGIAS: "sourceGIAS",
-  SourceWorkforce: "sourceWorkforce",
+  SourceStratum: "sourceStratum",
+  SourcePayDashboard: "sourcePayDashboard",
+  SourceWorkforceSurvey: "sourceWorkforceSurvey",
   WCtoURN: "wcToUrn",
-  SourceNEUDashboard: "sourceNeuDashboard",
+  MatAliases: "matAliases",
+  Reconciliations: "reconciliations",
   FieldNotes: "fieldNotes",
   DisputeTracker: "disputeTracker",
   BranchFacts: "branchFacts",

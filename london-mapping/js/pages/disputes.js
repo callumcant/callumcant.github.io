@@ -1,16 +1,100 @@
 import { loadAll, getState, addDispute, updateDispute } from "../data/store.js";
+import { buildSchoolLevel } from "../data/rollups.js";
 import { LONDON_BOROUGHS, DISPUTE_ISSUE_TYPES, ROR_IO_OPTIONS, RAG_OPTIONS } from "../config.js";
-import { renderDataTable, formatNumber, formatPercent, formatDate, ragPill, livePill, escapeHtml } from "../ui.js";
+import {
+  renderDataTable, renderColumnControls, loadColumnPrefs, saveColumnPrefs,
+  downloadCsv, formatNumber, formatPercent, formatDate, ragPill, livePill, escapeHtml,
+} from "../ui.js";
 import { navigate } from "../router.js";
+
+const PREFS_KEY = "london-mapping:disputes:columns";
+
+// The tracker holds far more than the old list showed. Same treatment as the
+// Schools view: a light default, presets, a column picker and CSV export, so
+// every recorded field is reachable without opening each dispute.
+function disputeColumns(schoolNameByUrn) {
+  const link = (label) => (r) =>
+    r[label] ? `<a href="${escapeHtml(r[label])}" target="_blank" rel="noopener noreferrer">Open</a>` : "—";
+  return [
+    { key: "employer", label: "Employer", always: true,
+      render: (r) => `<a class="row-link" href="#/disputes/${r.id}">${escapeHtml(r.employer)}</a>` },
+    { key: "branch", label: "Branch" },
+    { key: "mat", label: "MAT", render: (r) => escapeHtml(r.mat || "—") },
+    { key: "live", label: "Status", render: (r) => livePill(r.live) },
+    { key: "schoolsCount", label: "# Schools", num: true,
+      sortValue: (r) => (r.urns || []).length,
+      render: (r) => String((r.urns || []).length) },
+    { key: "schoolNames", label: "Schools", wrap: true,
+      sortValue: (r) => (r.urns || []).length,
+      render: (r) => escapeHtml((r.urns || []).map((u) => schoolNameByUrn.get(String(u)) || `URN ${u}`).join(", ") || "—"),
+      csv: (r) => (r.urns || []).map((u) => schoolNameByUrn.get(String(u)) || u).join("; ") },
+    { key: "urns", label: "Affected URNs", wrap: true,
+      render: (r) => escapeHtml((r.urns || []).join(", ") || "—"),
+      csv: (r) => (r.urns || []).join("; ") },
+    { key: "issues", label: "Issues", wrap: true,
+      render: (r) => escapeHtml(r.issues.join(", ")),
+      csv: (r) => r.issues.join("; ") },
+    { key: "rorIo", label: "Lead role" },
+    { key: "staffResponsible", label: "Lead name" },
+    { key: "dateIndicativeOpens", label: "Indicative opens", render: (r) => formatDate(r.dateIndicativeOpens),
+      csv: (r) => r.dateIndicativeOpens || "" },
+    { key: "indicativePercent", label: "Indicative %", num: true, render: (r) => formatPercent(r.indicativePercent),
+      csv: (r) => (r.indicativePercent == null ? "" : r.indicativePercent.toFixed(4)) },
+    { key: "membershipAtIndicative", label: "Membership at indicative", num: true,
+      render: (r) => formatNumber(r.membershipAtIndicative) },
+    { key: "formalBallotPercent", label: "Formal %", num: true, render: (r) => formatPercent(r.formalBallotPercent),
+      csv: (r) => (r.formalBallotPercent == null ? "" : r.formalBallotPercent.toFixed(4)) },
+    { key: "resolvedPriorToAction", label: "Resolved before action" },
+    { key: "dateOfResolution", label: "Resolved", render: (r) => formatDate(r.dateOfResolution),
+      csv: (r) => r.dateOfResolution || "" },
+    { key: "outcome", label: "Outcome", render: (r) => ragPill(r.outcome) },
+    { key: "totalStrikeDays", label: "Strike days", num: true },
+    { key: "tradeDisputeLetter", label: "Trade dispute letter", render: link("tradeDisputeLetter") },
+    { key: "formalBallotRequest", label: "Formal ballot request", render: link("formalBallotRequest") },
+    { key: "noticeOfFormalBallot", label: "Notice of formal ballot", render: link("noticeOfFormalBallot") },
+    { key: "noticeOfStrikeDates", label: "Notice of strike dates", render: link("noticeOfStrikeDates") },
+    { key: "endOfDisputeReport", label: "End of dispute report", render: link("endOfDisputeReport") },
+  ];
+}
+
+const DEFAULT_KEYS = [
+  "employer", "branch", "live", "schoolsCount", "issues", "rorIo",
+  "indicativePercent", "formalBallotPercent", "outcome", "totalStrikeDays",
+];
+
+const PRESETS = {
+  essentials: { label: "Essentials", keys: DEFAULT_KEYS },
+  schools: { label: "Schools affected", keys: ["employer", "branch", "mat", "live", "schoolsCount", "schoolNames", "urns"] },
+  ballots: { label: "Ballots", keys: ["employer", "live", "dateIndicativeOpens", "indicativePercent", "membershipAtIndicative", "formalBallotPercent", "resolvedPriorToAction"] },
+  outcome: { label: "Outcome", keys: ["employer", "branch", "live", "dateOfResolution", "outcome", "totalStrikeDays"] },
+  documents: { label: "Documents", keys: ["employer", "tradeDisputeLetter", "formalBallotRequest", "noticeOfFormalBallot", "noticeOfStrikeDates", "endOfDisputeReport"] },
+  everything: { label: "Everything", keys: null },
+};
+
+const PICKER_GROUPS = [
+  { label: "Identity", keys: ["employer", "branch", "mat", "live"] },
+  { label: "Schools", keys: ["schoolsCount", "schoolNames", "urns"] },
+  { label: "People & issues", keys: ["issues", "rorIo", "staffResponsible"] },
+  { label: "Ballots", keys: ["dateIndicativeOpens", "indicativePercent", "membershipAtIndicative", "formalBallotPercent", "resolvedPriorToAction"] },
+  { label: "Outcome", keys: ["dateOfResolution", "outcome", "totalStrikeDays"] },
+  { label: "Documents", keys: ["tradeDisputeLetter", "formalBallotRequest", "noticeOfFormalBallot", "noticeOfStrikeDates", "endOfDisputeReport"] },
+];
 
 export async function renderList(container) {
   const state = await loadAll();
+  const schools = buildSchoolLevel(state);
+  const schoolNameByUrn = new Map(schools.map((s) => [String(s.urn), s.schoolName]));
   const disputes = state.disputeTracker;
+  const columns = disputeColumns(schoolNameByUrn);
+  let visibleKeys = loadColumnPrefs(PREFS_KEY, DEFAULT_KEYS);
 
   container.innerHTML = `
     <div class="topbar">
       <h1>Dispute tracker</h1>
-      <a class="btn btn-primary" href="#/disputes/new">+ New dispute</a>
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn" id="export-csv">Export CSV</button>
+        <a class="btn btn-primary" href="#/disputes/new">+ New dispute</a>
+      </div>
     </div>
     <div class="filter-bar">
       <select id="dispute-live-filter">
@@ -20,7 +104,7 @@ export async function renderList(container) {
       </select>
       <select id="dispute-branch-filter">
         <option value="">All branches</option>
-        ${[...new Set(disputes.map((d) => d.branch))].sort().map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join("")}
+        ${[...new Set(disputes.map((d) => d.branch))].filter(Boolean).sort().map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join("")}
       </select>
       <select id="dispute-outcome-filter">
         <option value="">All outcomes</option>
@@ -28,39 +112,59 @@ export async function renderList(container) {
         <option value="none">Not yet set</option>
       </select>
     </div>
+    <div id="column-controls"></div>
     <div class="card"><div id="disputes-table"></div></div>
+    <div class="result-count" id="result-count"></div>
   `;
 
   const liveEl = container.querySelector("#dispute-live-filter");
   const branchEl = container.querySelector("#dispute-branch-filter");
   const outcomeEl = container.querySelector("#dispute-outcome-filter");
   const tableEl = container.querySelector("#disputes-table");
+  const countEl = container.querySelector("#result-count");
+  const controlsEl = container.querySelector("#column-controls");
 
-  const columns = [
-    { key: "employer", label: "Employer", render: (r) => `<a class="row-link" href="#/disputes/${r.id}">${escapeHtml(r.employer)}</a>` },
-    { key: "branch", label: "Branch" },
-    { key: "live", label: "Status", render: (r) => livePill(r.live) },
-    { key: "issues", label: "Issues", wrap: true, render: (r) => escapeHtml(r.issues.join(", ")) },
-    { key: "rorIo", label: "Lead" },
-    { key: "indicativePercent", label: "Indicative %", num: true, render: (r) => formatPercent(r.indicativePercent) },
-    { key: "formalBallotPercent", label: "Formal %", num: true, render: (r) => formatPercent(r.formalBallotPercent) },
-    { key: "outcome", label: "Outcome", render: (r) => ragPill(r.outcome) },
-    { key: "totalStrikeDays", label: "Strike days", num: true },
-  ];
-
-  function applyFilters() {
-    const filtered = disputes.filter((d) => {
+  function currentRows() {
+    return disputes.filter((d) => {
       if (liveEl.value && d.live !== liveEl.value) return false;
       if (branchEl.value && d.branch !== branchEl.value) return false;
       if (outcomeEl.value === "none" && d.outcome) return false;
       if (outcomeEl.value && outcomeEl.value !== "none" && d.outcome !== outcomeEl.value) return false;
       return true;
     });
-    renderDataTable(tableEl, columns, filtered, { defaultSort: "employer", defaultDir: "asc" });
   }
 
-  [liveEl, branchEl, outcomeEl].forEach((el) => el.addEventListener("input", applyFilters));
-  applyFilters();
+  function drawControls() {
+    renderColumnControls(controlsEl, {
+      columns, groups: PICKER_GROUPS, presets: PRESETS, visibleKeys,
+      onChange: (next) => {
+        visibleKeys = next;
+        saveColumnPrefs(PREFS_KEY, visibleKeys);
+        drawControls();
+        drawTable();
+      },
+    });
+  }
+
+  function drawTable() {
+    const rows = currentRows();
+    renderDataTable(tableEl, columns, rows, {
+      visibleKeys, stickyFirst: true, defaultSort: "employer", defaultDir: "asc",
+    });
+    countEl.textContent = `${rows.length} of ${disputes.length} disputes · ${visibleKeys.size} columns`;
+  }
+
+  [liveEl, branchEl, outcomeEl].forEach((el) => el.addEventListener("input", drawTable));
+  container.querySelector("#export-csv").addEventListener("click", () => {
+    downloadCsv(
+      `disputes-${new Date().toISOString().slice(0, 10)}.csv`,
+      columns.filter((c) => visibleKeys.has(c.key)),
+      currentRows()
+    );
+  });
+
+  drawControls();
+  drawTable();
 }
 
 function issueCheckboxes(selected = []) {
@@ -85,6 +189,7 @@ function optionsHtml(list, selected) {
 export async function renderForm(container, { id }) {
   await loadAll();
   const state = getState();
+  const allSchools = buildSchoolLevel(state);
   const existing = id ? state.disputeTracker.find((d) => d.id === id) : null;
   if (id && !existing) {
     container.innerHTML = `<div class="empty-state">Dispute not found.</div>`;
@@ -94,9 +199,11 @@ export async function renderForm(container, { id }) {
     employer: "", mat: "", branch: "", live: "Yes", schoolsCount: 1, rorIo: "ROR",
     // The numeric ballot fields default to null, not "": the inputs below test
     // `!= null`, and "" * 100 would render a misleading 0 on a blank form.
-    staffResponsible: "", issues: [], dateIndicativeOpens: "", indicativePercent: null,
+    staffResponsible: "", issues: [], urns: [], dateIndicativeOpens: "", indicativePercent: null,
     membershipAtIndicative: null, formalBallotPercent: null, dateOfResolution: "",
-    outcome: "", totalStrikeDays: 0,
+    outcome: "", totalStrikeDays: 0, resolvedPriorToAction: "No",
+    tradeDisputeLetter: "", formalBallotRequest: "", noticeOfFormalBallot: "",
+    noticeOfStrikeDates: "", endOfDisputeReport: "",
   };
 
   container.innerHTML = `
@@ -127,10 +234,6 @@ export async function renderForm(container, { id }) {
           </select>
         </div>
         <div class="field">
-          <label># Schools affected</label>
-          <input name="schoolsCount" type="number" min="0" value="${d.schoolsCount ?? ""}" />
-        </div>
-        <div class="field">
           <label>ROR / IO / SIO leading</label>
           <select name="rorIo">${optionsHtml(ROR_IO_OPTIONS, d.rorIo)}</select>
         </div>
@@ -141,6 +244,11 @@ export async function renderForm(container, { id }) {
         <div class="field span-2">
           <label>Dispute issues</label>
           <div class="checkbox-group">${issueCheckboxes(d.issues)}</div>
+        </div>
+        <div class="field span-2">
+          <label>Affected schools *</label>
+          <div class="hint">Search by name or URN. The number of schools is counted from this list, and the map's dispute layer uses it.</div>
+          <div id="school-picker"></div>
         </div>
       </div>
 
@@ -177,6 +285,37 @@ export async function renderForm(container, { id }) {
           <label>Total strike days</label>
           <input name="totalStrikeDays" type="number" min="0" value="${d.totalStrikeDays ?? 0}" />
         </div>
+        <div class="field">
+          <label>Resolved prior to action?</label>
+          <select name="resolvedPriorToAction">
+            <option value="No" ${d.resolvedPriorToAction !== "Yes" ? "selected" : ""}>No</option>
+            <option value="Yes" ${d.resolvedPriorToAction === "Yes" ? "selected" : ""}>Yes</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section-title">Documents</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Trade dispute letter</label>
+          <input name="tradeDisputeLetter" type="url" placeholder="Link" value="${escapeHtml(d.tradeDisputeLetter || "")}" />
+        </div>
+        <div class="field">
+          <label>Formal ballot request</label>
+          <input name="formalBallotRequest" type="url" placeholder="Link" value="${escapeHtml(d.formalBallotRequest || "")}" />
+        </div>
+        <div class="field">
+          <label>Notice of formal ballot</label>
+          <input name="noticeOfFormalBallot" type="url" placeholder="Link" value="${escapeHtml(d.noticeOfFormalBallot || "")}" />
+        </div>
+        <div class="field">
+          <label>Notice of strike dates</label>
+          <input name="noticeOfStrikeDates" type="url" placeholder="Link" value="${escapeHtml(d.noticeOfStrikeDates || "")}" />
+        </div>
+        <div class="field span-2">
+          <label>End of dispute report</label>
+          <input name="endOfDisputeReport" type="url" placeholder="Link" value="${escapeHtml(d.endOfDisputeReport || "")}" />
+        </div>
       </div>
 
       <div class="btn-row">
@@ -185,6 +324,60 @@ export async function renderForm(container, { id }) {
       </div>
     </form>
   `;
+
+  // Chosen schools live outside the form fields because they're a multi-select
+  // built from search, not an <input> the browser can serialise.
+  let selectedUrns = [...(d.urns || [])].map(String);
+  const pickerEl = container.querySelector("#school-picker");
+
+  function drawPicker() {
+    const chosen = selectedUrns
+      .map((u) => allSchools.find((s) => String(s.urn) === u))
+      .filter(Boolean);
+    pickerEl.innerHTML = `
+      <div class="chip-list">
+        ${chosen.length === 0 ? `<span class="muted-cell">No schools selected yet.</span>` : ""}
+        ${chosen.map((s) => `
+          <span class="chip chip-selected">${escapeHtml(s.schoolName)}
+            <button type="button" data-remove="${s.urn}" aria-label="Remove ${escapeHtml(s.schoolName)}">✕</button>
+          </span>`).join("")}
+      </div>
+      <input type="search" id="school-search" placeholder="Type a school name or URN…" autocomplete="off" />
+      <div class="picker-results" id="picker-results" hidden></div>`;
+
+    pickerEl.querySelectorAll("[data-remove]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        selectedUrns = selectedUrns.filter((u) => u !== btn.dataset.remove);
+        drawPicker();
+      });
+    });
+
+    const search = pickerEl.querySelector("#school-search");
+    const results = pickerEl.querySelector("#picker-results");
+    search.addEventListener("input", () => {
+      const q = search.value.trim().toLowerCase();
+      if (q.length < 2) {
+        results.hidden = true;
+        return;
+      }
+      const matches = allSchools
+        .filter((s) => !selectedUrns.includes(String(s.urn)))
+        .filter((s) => `${s.schoolName} ${s.urn} ${s.laName}`.toLowerCase().includes(q))
+        .slice(0, 8);
+      results.hidden = matches.length === 0;
+      results.innerHTML = matches
+        .map((s) => `<button type="button" data-add="${s.urn}">${escapeHtml(s.schoolName)}
+          <span class="muted-cell">URN ${s.urn} · ${escapeHtml(s.laName)}</span></button>`)
+        .join("");
+      results.querySelectorAll("[data-add]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          selectedUrns.push(btn.dataset.add);
+          drawPicker();
+        });
+      });
+    });
+  }
+  drawPicker();
 
   container.querySelector("#dispute-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -195,10 +388,11 @@ export async function renderForm(container, { id }) {
       mat: fd.get("mat").trim(),
       branch: fd.get("branch"),
       live: fd.get("live"),
-      schoolsCount: Number(fd.get("schoolsCount")) || 0,
+
       rorIo: fd.get("rorIo"),
       staffResponsible: fd.get("staffResponsible").trim(),
       issues: fd.getAll("issues"),
+      urns: selectedUrns,
       dateIndicativeOpens: fd.get("dateIndicativeOpens") || null,
       indicativePercent: fd.get("indicativePercent") ? Number(fd.get("indicativePercent")) / 100 : null,
       membershipAtIndicative: fd.get("membershipAtIndicative") ? Number(fd.get("membershipAtIndicative")) : null,
@@ -206,7 +400,20 @@ export async function renderForm(container, { id }) {
       dateOfResolution: fd.get("dateOfResolution") || null,
       outcome: fd.get("outcome") || null,
       totalStrikeDays: Number(fd.get("totalStrikeDays")) || 0,
+      resolvedPriorToAction: fd.get("resolvedPriorToAction") || "No",
+      tradeDisputeLetter: (fd.get("tradeDisputeLetter") || "").trim(),
+      formalBallotRequest: (fd.get("formalBallotRequest") || "").trim(),
+      noticeOfFormalBallot: (fd.get("noticeOfFormalBallot") || "").trim(),
+      noticeOfStrikeDates: (fd.get("noticeOfStrikeDates") || "").trim(),
+      endOfDisputeReport: (fd.get("endOfDisputeReport") || "").trim(),
     };
+    if (record.urns.length === 0) {
+      // Required, but it isn't a native form control so reportValidity can't
+      // catch it — say so where the field is rather than failing silently.
+      pickerEl.scrollIntoView({ block: "center" });
+      pickerEl.classList.add("has-error");
+      return;
+    }
     if (existing) {
       await updateDispute(existing.id, record);
     } else {

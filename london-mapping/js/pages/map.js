@@ -65,14 +65,14 @@ const MODES = {
   },
   disputes: {
     label: "Live disputes",
+    // Filtering rather than recolouring: a greyed-out dot still competes for
+    // attention, and the question this mode answers is "where are the
+    // disputes", not "where aren't they".
+    onlyMatching: (s) => s.inLiveDispute,
     legend: [
       { swatch: "filled", colour: "var(--color-critical)", text: "In a live dispute" },
-      { swatch: "hollow", colour: "var(--text-muted)", text: "No live dispute" },
     ],
-    style: (s) =>
-      s.inLiveDispute
-        ? { radius: 9, color: "#B3261E", fillColor: "#B3261E", fillOpacity: 0.85, weight: 2 }
-        : { radius: 5, color: "#767E84", fillColor: "#ffffff", fillOpacity: 0.75, weight: 1.5 },
+    style: () => ({ radius: 9, color: "#B3261E", fillColor: "#B3261E", fillOpacity: 0.85, weight: 2 }),
   },
   density: {
     label: "Density",
@@ -84,7 +84,7 @@ const MODES = {
       { swatch: "hollow", colour: "var(--text-muted)", text: "No data" },
     ],
     style: (s) => {
-      const d = s.density;
+      const d = s.densityTotal;
       if (d == null) return { radius: 5, color: "#767E84", fillColor: "#ffffff", fillOpacity: 0.7, weight: 1.5 };
       const colour = d < 0.2 ? "#cde2fb" : d < 0.35 ? "#6da7ec" : d < 0.5 ? "#2a78d6" : "#104281";
       return { radius: 8, color: "#0d366b", fillColor: colour, fillOpacity: 0.9, weight: 1.5 };
@@ -93,13 +93,15 @@ const MODES = {
   members: {
     label: "Membership size",
     legend: [
-      { swatch: "dot-sm", colour: "var(--accent)", text: "Under 10 members" },
-      { swatch: "dot-md", colour: "var(--accent)", text: "10–30" },
-      { swatch: "dot-lg", colour: "var(--accent)", text: "Over 30" },
+      { swatch: "dot-xs", colour: "var(--accent)", text: "Under 10" },
+      { swatch: "dot-sm", colour: "var(--accent)", text: "10–25" },
+      { swatch: "dot-md", colour: "var(--accent)", text: "25–50" },
+      { swatch: "dot-lg", colour: "var(--accent)", text: "50–100" },
+      { swatch: "dot-xl", colour: "var(--accent)", text: "Over 100" },
     ],
     style: (s) => {
-      const m = s.overallMembers || 0;
-      const radius = m > 30 ? 13 : m > 10 ? 9 : 5;
+      const m = s.membersTotal || 0;
+      const radius = m > 100 ? 16 : m > 50 ? 13 : m > 25 ? 10 : m > 10 ? 7 : 4;
       return { radius, color: "#00747C", fillColor: "#009CA6", fillOpacity: 0.7, weight: 1.5 };
     },
   },
@@ -121,8 +123,8 @@ function popupHtml(s) {
       <strong>${escapeHtml(s.schoolName)}</strong>
       <div class="map-popup-meta">${escapeHtml(s.phase)} · ${escapeHtml(s.laName)}</div>
       <dl>
-        <div><dt>Members</dt><dd>${formatNumber(s.overallMembers)}</dd></div>
-        <div><dt>Density</dt><dd>${formatPercent(s.density)}</dd></div>
+        <div><dt>Members</dt><dd>${formatNumber(s.membersTotal)}</dd></div>
+        <div><dt>Density</dt><dd>${formatPercent(s.densityTotal)}</dd></div>
         <div><dt>Reps</dt><dd>${s.repCount}</dd></div>
       </dl>
       ${s.inLiveDispute ? `<div class="map-popup-flag">In a live dispute</div>` : ""}
@@ -134,13 +136,8 @@ export async function render(container) {
   const state = await loadAll();
   const schools = buildSchoolLevel(state);
 
-  // Which schools sit under a live dispute — matched by branch or by MAT,
-  // since the tracker records disputes at employer level, not per school.
-  const liveBranches = new Set(state.disputeTracker.filter((d) => d.live === "Yes").map((d) => d.branch));
-  const liveMats = new Set(state.disputeTracker.filter((d) => d.live === "Yes" && d.mat).map((d) => d.mat));
-  for (const s of schools) {
-    s.inLiveDispute = liveBranches.has(s.laName) || (s.trust && liveMats.has(s.trust));
-  }
+  // `inLiveDispute` is set in buildSchoolLevel from the dispute's own URN
+  // list, so it is exact rather than inferred from branch or MAT.
 
   const branches = [...new Set(schools.map((s) => s.laName))].sort();
   const phases = [...new Set(schools.map((s) => s.phase).filter(Boolean))].sort();
@@ -233,7 +230,9 @@ export async function render(container) {
   const missingEl = container.querySelector("#map-missing");
 
   function visibleSchools() {
+    const mode = MODES[modeEl.value];
     return schools.filter((s) => {
+      if (mode.onlyMatching && !mode.onlyMatching(s)) return false;
       if (branchEl.value && s.laName !== branchEl.value) return false;
       if (phaseEl.value && s.phase !== phaseEl.value) return false;
       if (repEl.value === "no-rep" && s.repCount !== 0) return false;

@@ -20,9 +20,11 @@ export async function renderList(container) {
     [
       { key: "name", label: "Branch", render: (r) => `<a class="row-link" href="#/branches/${encodeURIComponent(r.name)}">${escapeHtml(r.name)}${r.isProjectBranch ? " ⭐" : ""}</a>` },
       { key: "schoolsCount", label: "Schools", num: true },
-      { key: "headcount", label: "Workforce", num: true, render: (r) => formatNumber(r.headcount) },
-      { key: "members", label: "Members", num: true, render: (r) => formatNumber(r.members) },
-      { key: "density", label: "Density", num: true, render: (r) => formatPercent(r.density) },
+      { key: "headcountTotal", label: "Headcount", num: true, render: (r) => formatNumber(r.headcountTotal) },
+      { key: "membersTotal", label: "Members", num: true, render: (r) => formatNumber(r.membersTotal) },
+      { key: "densityTotal", label: "Density", num: true, render: (r) => formatPercent(r.densityTotal) },
+      { key: "densityTeachers", label: "Density (teachers)", num: true, render: (r) => formatPercent(r.densityTeachers) },
+      { key: "densitySupport", label: "Density (support)", num: true, render: (r) => formatPercent(r.densitySupport) },
       { key: "reps", label: "Reps", num: true },
       { key: "memberRepRatio", label: "Member:rep" },
       { key: "noRepSchools", label: "No-rep schools", num: true },
@@ -33,7 +35,7 @@ export async function renderList(container) {
         render: (r) => noteLinkCell(r, "Branch", r.name) },
     ],
     branches,
-    { defaultSort: "members", defaultDir: "desc" }
+    { defaultSort: "membersTotal", defaultDir: "desc" }
   );
 }
 
@@ -58,11 +60,12 @@ export async function renderDetail(container, { name }) {
 
     <div class="tile-grid">
       <div class="tile"><div class="tile-label">Schools</div><div class="tile-value">${branch.schoolsCount}</div></div>
-      <div class="tile"><div class="tile-label">Workforce</div><div class="tile-value">${formatNumber(branch.headcount)}</div></div>
-      <div class="tile"><div class="tile-label">Members</div><div class="tile-value">${formatNumber(branch.members)}</div></div>
-      <div class="tile"><div class="tile-label">Density</div><div class="tile-value">${formatPercent(branch.density)}</div></div>
-      <div class="tile"><div class="tile-label">Teacher share</div><div class="tile-value">${formatPercent(branch.teacherShare)}</div></div>
-      <div class="tile"><div class="tile-label">Support share</div><div class="tile-value">${formatPercent(branch.supportShare)}</div></div>
+      <div class="tile"><div class="tile-label">Workforce</div><div class="tile-value">${formatNumber(branch.headcountTotal)}</div></div>
+      <div class="tile"><div class="tile-label">Members</div><div class="tile-value">${formatNumber(branch.membersTotal)}</div></div>
+      <div class="tile"><div class="tile-label">Density</div><div class="tile-value">${formatPercent(branch.densityTotal)}</div></div>
+      <div class="tile"><div class="tile-label">Density (teachers)</div><div class="tile-value">${formatPercent(branch.densityTeachers)}</div></div>
+      <div class="tile"><div class="tile-label">Density (leadership)</div><div class="tile-value">${formatPercent(branch.densityLeadership)}</div></div>
+      <div class="tile"><div class="tile-label">Density (support)</div><div class="tile-value">${formatPercent(branch.densitySupport)}</div></div>
       <div class="tile"><div class="tile-label">Reps</div><div class="tile-value">${branch.reps}</div></div>
       <div class="tile"><div class="tile-label">Member:rep ratio</div><div class="tile-value">${branch.memberRepRatio}</div></div>
       <div class="tile"><div class="tile-label">No-rep schools</div><div class="tile-value">${branch.noRepSchools}</div></div>
@@ -102,11 +105,13 @@ export async function renderDetail(container, { name }) {
     [
       { key: "schoolName", label: "School", render: (r) => `<a class="row-link" href="#/schools/${r.urn}">${escapeHtml(r.schoolName)}</a>` },
       { key: "trust", label: "MAT" },
-      { key: "overallMembers", label: "Members", num: true, render: (r) => formatNumber(r.overallMembers) },
-      { key: "density", label: "Density", num: true, render: (r) => formatPercent(r.density) },
+      { key: "membersTotal", label: "Members", num: true, render: (r) => formatNumber(r.membersTotal) },
+      { key: "densityTotal", label: "Density", num: true, render: (r) => formatPercent(r.densityTotal) },
+      { key: "densityTeachers", label: "Density (teachers)", num: true, render: (r) => formatPercent(r.densityTeachers) },
+      { key: "densitySupport", label: "Density (support)", num: true, render: (r) => formatPercent(r.densitySupport) },
       { key: "repCount", label: "Reps", num: true },
     ],
     branch.schools,
-    { defaultSort: "overallMembers", defaultDir: "desc" }
+    { defaultSort: "membersTotal", defaultDir: "desc" }
   );
 }

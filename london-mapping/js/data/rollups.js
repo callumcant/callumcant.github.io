@@ -1,18 +1,24 @@
-// Port of the workbook's School-level / MAT-level / Branch-level / Project
-// dashboard tabs, as plain joins and aggregations instead of spreadsheet
-// formulas. The original used Google-Sheets-only FILTER/UNIQUE/ARRAYFORMULA
-// (visible as __xludf.DUMMYFUNCTION wrappers when opened in Excel), which
-// don't run reliably once the workbook lives on OneDrive — this reimplements
-// the same *intent*, column by column, against the raw source tables.
+// Builds the school / MAT / branch / project views from the raw source tables.
+//
+// Replaces the original workbook's School-level, MAT-level, Branch-level and
+// Project dashboard tabs, whose Google-Sheets-only array formulas don't survive
+// being opened as a live Excel file on OneDrive.
+//
+// Sources, per data-dictionary/dictionary.json:
+//   GIAS                  — the spine (one row per school, keyed by URN)
+//   Stratum               — headcount AND membership, split by staff category
+//   Pay Dashboard         — ballots, engagement, rep count
+//   School workforce survey — third-party headcount cross-check, workload/pay
+// Stratum and the Pay Dashboard key on workplace code and join via WCtoURN.
 //
 // buildSchoolLevel passes through every field from the source tables rather
 // than a chosen subset: the site has to be a superset of the spreadsheet, and
 // the view layer decides what to show, not this layer.
-//
-// Ballot "success" isn't in the source data as a flag — the workbook only
-// stores the raw %. This treats >=50% Yes as successful, matching common
-// NEU ballot reporting; adjust SUCCESS_THRESHOLD if your branches define it
-// differently (e.g. against the legal 50% turnout / 40% eligible thresholds).
+import { applyReconciliations, canonicalMat } from "./reconcile.js";
+
+// Ballot "success" isn't in the source data as a flag — only the raw %. This
+// treats >=50% Yes as successful, matching common NEU ballot reporting; adjust
+// if your branches define it against the legal 50% turnout / 40% eligible tests.
 const SUCCESS_THRESHOLD = 0.5;
 
 function sum(arr, fn) {
@@ -28,100 +34,219 @@ function latestBy(rows, key = "date") {
   return rows.reduce((latest, r) => (!latest || r[key] > latest[key] ? r : latest), null);
 }
 
+// ---------------------------------------------------------------------------
+// Density
+//
+// THE RULE, from the data dictionary: density at MAT and borough level must be
+// recalculated from summed headcount and summed membership. It cannot be
+// averaged from the constituent schools' densities.
+//
+// Averaging weights a 19-staff nursery the same as a 130-staff secondary and
+// gives a materially different — wrong — answer. Every aggregate below goes
+// through this helper for exactly that reason; if you are tempted to
+// "simplify" it into a mean of school densities, don't.
+// ---------------------------------------------------------------------------
+function densities(members, headcount) {
+  return {
+    densityTotal: safeDiv(members.total, headcount.total),
+    densityTeachers: safeDiv(members.teachers, headcount.teachers),
+    densityLeadership: safeDiv(members.leadership, headcount.leadership),
+    densitySupport: safeDiv(members.support, headcount.support),
+  };
+}
+
+function sumMembers(schools) {
+  return {
+    total: sum(schools, (s) => s.membersTotal),
+    teachers: sum(schools, (s) => s.membersTeachers),
+    leadership: sum(schools, (s) => s.membersLeadership),
+    support: sum(schools, (s) => s.membersSupport),
+  };
+}
+
+function sumHeadcount(schools) {
+  return {
+    total: sum(schools, (s) => s.headcountTotal),
+    teachers: sum(schools, (s) => s.headcountTeachers),
+    leadership: sum(schools, (s) => s.headcountLeadership),
+    support: sum(schools, (s) => s.headcountSupport),
+  };
+}
+
 export function buildSchoolLevel(state) {
-  const workforceByUrn = new Map(state.sourceWorkforce.map((w) => [w.urn, w]));
-  const urnByWorkplaceCode = new Map(state.wcToUrn.map((r) => [r.workplaceCode, r.urn]));
-  const neuByUrn = new Map();
-  for (const row of state.sourceNeuDashboard) {
-    const urn = urnByWorkplaceCode.get(row.workplaceCode);
-    if (urn != null) neuByUrn.set(urn, row);
+  // Manual reconciliation decisions are applied before any joining, so a
+  // resolved anomaly actually moves the numbers rather than just leaving the
+  // Anomalies page.
+  const { urnByWorkplaceCode, excludedUrns, successorOf } = applyReconciliations(state);
+
+  const stratumByUrn = new Map();
+  for (const row of state.sourceStratum) {
+    let urn = urnByWorkplaceCode.get(row.workplaceCode);
+    if (urn == null) continue;
+    urn = successorOf.get(String(urn)) ?? urn; // members follow a closed school to its successor
+    const existing = stratumByUrn.get(String(urn));
+    // A successor URN can receive rows from more than one predecessor code.
+    stratumByUrn.set(String(urn), existing ? mergeStratum(existing, row) : row);
   }
+
+  const payByUrn = new Map();
+  for (const row of state.sourcePayDashboard) {
+    let urn = urnByWorkplaceCode.get(row.workplaceCode);
+    if (urn == null) continue;
+    urn = successorOf.get(String(urn)) ?? urn;
+    const existing = payByUrn.get(String(urn));
+    payByUrn.set(String(urn), existing ? mergePay(existing, row) : row);
+  }
+
+  const surveyByUrn = new Map(state.sourceWorkforceSurvey.map((w) => [String(w.urn), w]));
 
   const meetingsByUrn = new Map();
   for (const m of state.meetings) {
-    meetingsByUrn.set(m.urn, (meetingsByUrn.get(m.urn) || 0) + 1);
+    meetingsByUrn.set(String(m.urn), (meetingsByUrn.get(String(m.urn)) || 0) + 1);
   }
   const recruitedByUrn = new Map();
   for (const r of state.repsRecruited) {
-    recruitedByUrn.set(r.urn, (recruitedByUrn.get(r.urn) || 0) + 1);
+    recruitedByUrn.set(String(r.urn), (recruitedByUrn.get(String(r.urn)) || 0) + 1);
   }
 
-  return state.sourceGIAS.map((school) => {
-    const wf = workforceByUrn.get(school.urn) || {};
-    const neu = neuByUrn.get(school.urn) || {};
-    const notes = state.fieldNotes.filter(
-      (n) => n.level === "School" && String(n.subject) === String(school.urn)
-    );
-    const lastNote = latestBy(notes);
+  // A school is in dispute if its URN is listed on a live dispute — exact,
+  // rather than inferred from the dispute's branch or MAT.
+  const disputeUrns = new Map();
+  for (const d of state.disputeTracker) {
+    for (const urn of d.urns || []) {
+      if (!disputeUrns.has(String(urn))) disputeUrns.set(String(urn), []);
+      disputeUrns.get(String(urn)).push(d);
+    }
+  }
 
-    const overallMembers = neu.overallMembers ?? 0;
-    const hcWorkforce = wf.hcWorkforce ?? 0;
+  return state.sourceGIAS
+    .filter((school) => !excludedUrns.has(String(school.urn)))
+    .map((school) => {
+      const key = String(school.urn);
+      const st = stratumByUrn.get(key) || {};
+      const pay = payByUrn.get(key) || {};
+      const sv = surveyByUrn.get(key) || {};
+      const notes = state.fieldNotes.filter(
+        (n) => n.level === "School" && String(n.subject) === key
+      );
+      const lastNote = latestBy(notes);
+      const schoolDisputes = disputeUrns.get(key) || [];
 
-    return {
-      // --- GIAS ---
-      urn: school.urn,
-      schoolName: school.schoolName,
-      typeOfEstablishment: school.typeOfEstablishment ?? "",
-      phase: school.phase ?? "",
-      laName: school.laName ?? "",
-      establishmentStatus: school.establishmentStatus ?? "",
-      religiousCharacter: school.religiousCharacter ?? "",
-      diocese: school.diocese ?? "",
-      trust: school.trusts || "",
-      schoolSponsors: school.schoolSponsors ?? "",
-      federations: school.federations ?? "",
-      postcode: school.postcode ?? "",
-      schoolWebsite: school.schoolWebsite ?? "",
-      telephoneNum: school.telephoneNum ?? "",
-      headName: [school.headTitle, school.headFirstName, school.headLastName]
-        .filter(Boolean).join(" "),
+      const members = {
+        total: st.membersTotal ?? 0,
+        teachers: st.membersTeachers ?? 0,
+        leadership: st.membersLeadership ?? 0,
+        support: st.membersSupport ?? 0,
+      };
+      const headcount = {
+        total: st.headcountTotal ?? 0,
+        teachers: st.headcountTeachers ?? 0,
+        leadership: st.headcountLeadership ?? 0,
+        support: st.headcountSupport ?? 0,
+      };
 
-      // --- Workforce census ---
-      schoolType: wf.schoolType ?? "",
-      hcWorkforce,
-      hcAllTeachers: wf.hcAllTeachers ?? 0,
-      hcClassroomTeachers: wf.hcClassroomTeachers ?? 0,
-      hcLeadershipTeachers: wf.hcLeadershipTeachers ?? 0,
-      hcAllSupportStaff: wf.hcAllSupportStaff ?? 0,
-      hcTeachingAssistants: wf.hcTeachingAssistants ?? 0,
+      return {
+        // --- GIAS (the spine) ---
+        urn: school.urn,
+        schoolName: school.schoolName,
+        typeOfEstablishment: school.typeOfEstablishment ?? "",
+        phase: school.phase ?? "",
+        laName: school.laName ?? "",
+        establishmentStatus: school.establishmentStatus ?? "",
+        religiousCharacter: school.religiousCharacter ?? "",
+        diocese: school.diocese ?? "",
+        trust: canonicalMat(state, school.trusts),
+        trustAsSourced: school.trusts || "",
+        schoolSponsors: school.schoolSponsors ?? "",
+        federations: school.federations ?? "",
+        postcode: school.postcode ?? "",
+        schoolWebsite: school.schoolWebsite ?? "",
+        telephoneNum: school.telephoneNum ?? "",
+        headName: [school.headTitle, school.headFirstName, school.headLastName]
+          .filter(Boolean).join(" "),
 
-      // --- NEU membership & ballots ---
-      workplaceName: neu.workplaceName ?? "",
-      branchName: neu.branchName ?? "",
-      districtName: neu.districtName ?? "",
-      regionName: neu.regionName ?? "",
-      overallMembers,
-      voted: neu.voted ?? 0,
-      // Derived here; `turnoutReported` is the figure as exported, kept so the
-      // two can be compared if they ever disagree.
-      turnout: safeDiv(neu.voted, overallMembers),
-      turnoutReported: neu.turnout ?? null,
-      density: safeDiv(overallMembers, hcWorkforce),
-      indicativeVoted2025: neu.indicativeVoted2025 ?? null,
-      indicativeVoted2024: neu.indicativeVoted2024 ?? null,
+        // --- Stratum: headcount and membership, the density inputs ---
+        workplaceCode: st.workplaceCode ?? pay.workplaceCode ?? "",
+        headcountTotal: headcount.total,
+        headcountTeachers: headcount.teachers,
+        headcountLeadership: headcount.leadership,
+        headcountSupport: headcount.support,
+        membersTotal: members.total,
+        membersTeachers: members.teachers,
+        membersLeadership: members.leadership,
+        membersSupport: members.support,
+        stratumExportDate: st.exportDate ?? null,
+        ...densities(members, headcount),
 
-      // --- Organising engagement ---
-      repCount: neu.repCount ?? 0,
-      volunteers: neu.volunteers ?? 0,
-      wpConversations: neu.wpConversations ?? 0,
-      repRecruitedVolunteer: neu.repRecruitedVolunteer ?? 0,
-      joinedCommunity: neu.joinedCommunity ?? 0,
-      completedActivateAction: neu.completedActivateAction ?? 0,
-      agreedToBriefing: neu.agreedToBriefing ?? 0,
-      holdAMeeting: neu.holdAMeeting ?? 0,
-      needsSupport: neu.needsSupport ?? 0,
-      pledgedToVote: neu.pledgedToVote ?? 0,
-      activeSEVs: neu.activeSEVs ?? 0,
-      importDate: neu.importDate ?? null,
+        // --- Pay Dashboard: ballots, engagement, reps ---
+        repCount: pay.repCount ?? 0,
+        membersVoted2026: pay.membersVoted2026 ?? null,
+        membersVoted2025: pay.membersVoted2025 ?? null,
+        membersVoted2024: pay.membersVoted2024 ?? null,
+        turnout2026: pay.turnout2026 ?? null,
+        volunteers: pay.volunteers ?? 0,
+        wpConversations: pay.wpConversations ?? 0,
+        activeSEVs: pay.activeSEVs ?? 0,
+        repRecruitedVolunteer: pay.repRecruitedVolunteer ?? 0,
+        joinedCommunity: pay.joinedCommunity ?? 0,
+        completedActivateAction: pay.completedActivateAction ?? 0,
+        agreedToBriefing: pay.agreedToBriefing ?? 0,
+        holdAMeeting: pay.holdAMeeting ?? 0,
+        needsSupport: pay.needsSupport ?? 0,
+        pledgedToVote: pay.pledgedToVote ?? 0,
+        branchName: pay.branchName ?? "",
+        districtName: pay.districtName ?? "",
+        regionName: pay.regionName ?? "",
+        importDate: pay.importDate ?? null,
 
-      // --- Derived from app activity ---
-      meetingsLogged: meetingsByUrn.get(school.urn) || 0,
-      repsRecruitedLogged: recruitedByUrn.get(school.urn) || 0,
-      noteCount: notes.length,
-      lastNoteDate: lastNote?.date ?? null,
-      latestNoteTitle: lastNote?.title ?? null,
-    };
-  });
+        // --- Workforce survey: third-party cross-check + workload/pay ---
+        headcountThirdParty: sv.headcountThirdParty ?? null,
+        annualTurnover: sv.annualTurnover ?? null,
+        pupilTeacherRatio: sv.pupilTeacherRatio ?? null,
+        averageMeanPay: sv.averageMeanPay ?? null,
+        vacancies: sv.vacancies ?? null,
+        averageSickDays: sv.averageSickDays ?? null,
+        schoolType: sv.schoolType ?? "",
+        hcAllTeachers: sv.hcAllTeachers ?? null,
+        hcClassroomTeachers: sv.hcClassroomTeachers ?? null,
+        hcLeadershipTeachers: sv.hcLeadershipTeachers ?? null,
+        hcAllSupportStaff: sv.hcAllSupportStaff ?? null,
+        hcTeachingAssistants: sv.hcTeachingAssistants ?? null,
+
+        // --- Derived from app activity ---
+        meetingsLogged: meetingsByUrn.get(key) || 0,
+        repsRecruitedLogged: recruitedByUrn.get(key) || 0,
+        noteCount: notes.length,
+        lastNoteDate: lastNote?.date ?? null,
+        latestNoteTitle: lastNote?.title ?? null,
+        disputes: schoolDisputes,
+        inLiveDispute: schoolDisputes.some((d) => d.live === "Yes"),
+      };
+    });
+}
+
+function mergeStratum(a, b) {
+  return {
+    ...a,
+    headcountTotal: (a.headcountTotal || 0) + (b.headcountTotal || 0),
+    headcountTeachers: (a.headcountTeachers || 0) + (b.headcountTeachers || 0),
+    headcountLeadership: (a.headcountLeadership || 0) + (b.headcountLeadership || 0),
+    headcountSupport: (a.headcountSupport || 0) + (b.headcountSupport || 0),
+    membersTotal: (a.membersTotal || 0) + (b.membersTotal || 0),
+    membersTeachers: (a.membersTeachers || 0) + (b.membersTeachers || 0),
+    membersLeadership: (a.membersLeadership || 0) + (b.membersLeadership || 0),
+    membersSupport: (a.membersSupport || 0) + (b.membersSupport || 0),
+  };
+}
+
+function mergePay(a, b) {
+  return {
+    ...a,
+    repCount: (a.repCount || 0) + (b.repCount || 0),
+    volunteers: (a.volunteers || 0) + (b.volunteers || 0),
+    wpConversations: (a.wpConversations || 0) + (b.wpConversations || 0),
+    activeSEVs: (a.activeSEVs || 0) + (b.activeSEVs || 0),
+  };
 }
 
 export function buildMatLevel(schools, state) {
@@ -135,11 +260,9 @@ export function buildMatLevel(schools, state) {
   return [...byTrust.entries()].map(([trust, matSchools]) => {
     const schoolCount = matSchools.length;
     const noRepSchools = matSchools.filter((s) => s.repCount === 0).length;
-    const totalStaffHeadcount = sum(matSchools, (s) => s.hcWorkforce);
-    const totalMembers = sum(matSchools, (s) => s.overallMembers);
+    const members = sumMembers(matSchools);
+    const headcount = sumHeadcount(matSchools);
     const reps = sum(matSchools, (s) => s.repCount);
-    const boroughsPresent = [...new Set(matSchools.map((s) => s.laName))].sort();
-    const phasesPresent = [...new Set(matSchools.map((s) => s.phase))].sort();
     const notes = state.fieldNotes.filter((n) => n.level === "MAT" && n.subject === trust);
     const lastNote = latestBy(notes);
     const facts = state.matFacts.find((f) => f.mat === trust)
@@ -149,16 +272,24 @@ export function buildMatLevel(schools, state) {
       name: trust,
       isTargetMat: facts.isTargetMat,
       schoolCount,
-      boroughsPresent,
-      phasesPresent,
-      totalStaffHeadcount,
-      totalMembers,
+      boroughsPresent: [...new Set(matSchools.map((s) => s.laName))].sort(),
+      phasesPresent: [...new Set(matSchools.map((s) => s.phase))].sort(),
+      headcountTotal: headcount.total,
+      headcountTeachers: headcount.teachers,
+      headcountLeadership: headcount.leadership,
+      headcountSupport: headcount.support,
+      membersTotal: members.total,
+      membersTeachers: members.teachers,
+      membersLeadership: members.leadership,
+      membersSupport: members.support,
+      // Recalculated from the sums above — never averaged. See the note on
+      // densities().
+      ...densities(members, headcount),
       reps,
-      memberRepRatio: reps === 0 ? "No reps" : `1:${Math.round(totalMembers / reps)}`,
+      memberRepRatio: reps === 0 ? "No reps" : `1:${Math.round(members.total / reps)}`,
       noRepSchools,
-      trustDensity: safeDiv(totalMembers, totalStaffHeadcount),
       repCoveragePercent: safeDiv(schoolCount - noRepSchools, schoolCount),
-      membersInNoRepSchools: sum(matSchools.filter((s) => s.repCount === 0), (s) => s.overallMembers),
+      membersInNoRepSchools: sum(matSchools.filter((s) => s.repCount === 0), (s) => s.membersTotal),
       repCommitteeExists: !!facts.repCommitteeExists,
       meetingsHeld: sum(matSchools, (s) => s.meetingsLogged),
       repsRecruited: sum(matSchools, (s) => s.repsRecruitedLogged),
@@ -178,12 +309,12 @@ export function buildBranchLevel(schools, state) {
   }
 
   return [...byBranch.entries()].map(([branch, branchSchools]) => {
-    const headcount = sum(branchSchools, (s) => s.hcWorkforce);
-    const members = sum(branchSchools, (s) => s.overallMembers);
+    const members = sumMembers(branchSchools);
+    const headcount = sumHeadcount(branchSchools);
     const reps = sum(branchSchools, (s) => s.repCount);
     const noRepSchoolsList = branchSchools.filter((s) => s.repCount === 0);
     const biggestNoRep = noRepSchoolsList.reduce(
-      (biggest, s) => (!biggest || s.overallMembers > biggest.overallMembers ? s : biggest),
+      (biggest, s) => (!biggest || s.membersTotal > biggest.membersTotal ? s : biggest),
       null
     );
     const notes = state.fieldNotes.filter((n) => n.level === "Branch" && n.subject === branch);
@@ -195,25 +326,30 @@ export function buildBranchLevel(schools, state) {
       name: branch,
       isProjectBranch: facts.isProjectBranch,
       schoolsCount: branchSchools.length,
-      headcount,
-      members,
-      density: safeDiv(members, headcount),
-      teacherShare: safeDiv(sum(branchSchools, (s) => s.hcAllTeachers), headcount),
-      supportShare: safeDiv(sum(branchSchools, (s) => s.hcAllSupportStaff), headcount),
+      headcountTotal: headcount.total,
+      headcountTeachers: headcount.teachers,
+      headcountLeadership: headcount.leadership,
+      headcountSupport: headcount.support,
+      membersTotal: members.total,
+      membersTeachers: members.teachers,
+      membersLeadership: members.leadership,
+      membersSupport: members.support,
+      // Recalculated from the sums above — never averaged.
+      ...densities(members, headcount),
       reps,
-      memberRepRatio: reps === 0 ? "No reps" : `1:${Math.round(members / reps)}`,
+      memberRepRatio: reps === 0 ? "No reps" : `1:${Math.round(members.total / reps)}`,
       noRepSchools: noRepSchoolsList.length,
-      membersInNoRepSchools: sum(noRepSchoolsList, (s) => s.overallMembers),
-      workforceInNoRepSchools: sum(noRepSchoolsList, (s) => s.hcWorkforce),
+      membersInNoRepSchools: sum(noRepSchoolsList, (s) => s.membersTotal),
+      headcountInNoRepSchools: sum(noRepSchoolsList, (s) => s.headcountTotal),
       biggestNoRepSchool: biggestNoRep
-        ? { name: biggestNoRep.schoolName, members: biggestNoRep.overallMembers }
+        ? { name: biggestNoRep.schoolName, members: biggestNoRep.membersTotal }
         : null,
-      // Derived from the Meetings event log rather than a hand-kept counter,
-      // so it carries a trend and can be drilled into.
+      // Derived from the Meetings event log rather than a hand-kept counter, so
+      // it carries a trend and can be drilled into.
       schoolMeetingsHeld: sum(branchSchools, (s) => s.meetingsLogged),
       repsRecruited: sum(branchSchools, (s) => s.repsRecruitedLogged),
-      // Still a manual counter: rep *training* data is a later pipeline and is
-      // not the same thing as recruitment.
+      // Still manual: rep *training* data is a later pipeline and is not the
+      // same thing as recruitment.
       repsTrainedSinceStart: facts.repsTrainedSinceStart ?? 0,
       noteCount: notes.length,
       lastNoteDate: lastNote?.date ?? null,
@@ -241,12 +377,17 @@ export function buildProjectDashboard(branches, mats, disputes) {
   const projectBranches = branches.filter((b) => b.isProjectBranch);
   const projectMats = mats.filter((m) => m.isTargetMat);
 
-  const branchWorkforce = sum(projectBranches, (b) => b.headcount);
-  const branchMembers = sum(projectBranches, (b) => b.members);
-  const branchReps = sum(projectBranches, (b) => b.reps);
+  // Aggregated from the schools themselves rather than from the branch/MAT
+  // figures, so density is summed once at the finest grain — see densities().
+  const branchSchools = projectBranches.flatMap((b) => b.schools);
+  const matSchools = projectMats.flatMap((m) => m.schools);
 
-  const matWorkforce = sum(projectMats, (m) => m.totalStaffHeadcount);
-  const matMembers = sum(projectMats, (m) => m.totalMembers);
+  const branchMembers = sumMembers(branchSchools);
+  const branchHeadcount = sumHeadcount(branchSchools);
+  const matMembers = sumMembers(matSchools);
+  const matHeadcount = sumHeadcount(matSchools);
+
+  const branchReps = sum(projectBranches, (b) => b.reps);
   const matReps = sum(projectMats, (m) => m.reps);
 
   const projectBranchNames = projectBranches.map((b) => b.name);
@@ -256,23 +397,22 @@ export function buildProjectDashboard(branches, mats, disputes) {
 
   return {
     projectBranches: {
-      workforce: branchWorkforce,
-      membership: branchMembers,
-      density: safeDiv(branchMembers, branchWorkforce),
+      membersTotal: branchMembers.total,
+      headcountTotal: branchHeadcount.total,
+      ...densities(branchMembers, branchHeadcount),
       noRepSchools: sum(projectBranches, (b) => b.noRepSchools),
-      memberRepRatio: branchReps === 0 ? "No reps" : `1:${Math.round(branchMembers / branchReps)}`,
+      memberRepRatio: branchReps === 0 ? "No reps" : `1:${Math.round(branchMembers.total / branchReps)}`,
       schoolMeetingsHeld: sum(projectBranches, (b) => b.schoolMeetingsHeld),
       repsRecruited: sum(projectBranches, (b) => b.repsRecruited),
       repsTrainedSinceStart: sum(projectBranches, (b) => b.repsTrainedSinceStart),
       ...disputeKpis(branchDisputes),
     },
     projectMats: {
-      workforce: matWorkforce,
-      membership: matMembers,
-      density: safeDiv(matMembers, matWorkforce),
+      membersTotal: matMembers.total,
+      headcountTotal: matHeadcount.total,
+      ...densities(matMembers, matHeadcount),
       noRepSchools: sum(projectMats, (m) => m.noRepSchools),
-      memberRepRatio: matReps === 0 ? "No reps" : `1:${Math.round(matMembers / matReps)}`,
-      membersInNoRepSchools: sum(projectMats, (m) => m.membersInNoRepSchools),
+      memberRepRatio: matReps === 0 ? "No reps" : `1:${Math.round(matMembers.total / matReps)}`,
       repCommittees: projectMats.filter((m) => m.repCommitteeExists).length,
       meetingsHeld: sum(projectMats, (m) => m.meetingsHeld),
       repsRecruited: sum(projectMats, (m) => m.repsRecruited),

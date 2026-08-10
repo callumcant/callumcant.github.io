@@ -51,23 +51,34 @@ function schoolColumns() {
     { key: "regionName", label: "NEU region" },
 
     { key: "schoolType", label: "School type" },
-    { key: "hcWorkforce", label: "Workforce", num: true, render: (r) => formatNumber(r.hcWorkforce) },
-    { key: "hcAllTeachers", label: "All teachers", num: true, render: (r) => formatNumber(r.hcAllTeachers) },
-    { key: "hcClassroomTeachers", label: "Classroom teachers", num: true, render: (r) => formatNumber(r.hcClassroomTeachers) },
-    { key: "hcLeadershipTeachers", label: "Leadership teachers", num: true, render: (r) => formatNumber(r.hcLeadershipTeachers) },
-    { key: "hcAllSupportStaff", label: "Support staff", num: true, render: (r) => formatNumber(r.hcAllSupportStaff) },
-    { key: "hcTeachingAssistants", label: "Teaching assistants", num: true, render: (r) => formatNumber(r.hcTeachingAssistants) },
+    { key: "headcountTotal", label: "Headcount", num: true, render: (r) => formatNumber(r.headcountTotal) },
+    { key: "headcountTeachers", label: "Headcount (teachers)", num: true, render: (r) => formatNumber(r.headcountTeachers) },
+    { key: "headcountLeadership", label: "Headcount (leadership)", num: true, render: (r) => formatNumber(r.headcountLeadership) },
+    { key: "headcountSupport", label: "Headcount (support)", num: true, render: (r) => formatNumber(r.headcountSupport) },
+    { key: "headcountThirdParty", label: "Headcount (third party)", num: true, render: (r) => formatNumber(r.headcountThirdParty) },
+    { key: "annualTurnover", label: "Annual turnover", num: true, render: (r) => formatPercent(r.annualTurnover) },
+    { key: "pupilTeacherRatio", label: "Pupil:teacher ratio", num: true, render: (r) => (r.pupilTeacherRatio ?? "–") },
+    { key: "averageMeanPay", label: "Average mean pay", num: true, render: (r) => formatNumber(r.averageMeanPay) },
+    { key: "vacancies", label: "Vacancies", num: true, render: (r) => formatNumber(r.vacancies) },
+    { key: "averageSickDays", label: "Average sick days", num: true, render: (r) => (r.averageSickDays ?? "–") },
 
-    { key: "overallMembers", label: "Members", num: true, render: (r) => formatNumber(r.overallMembers) },
-    { key: "density", label: "Density", num: true, render: (r) => formatPercent(r.density),
-      csv: (r) => (r.density == null ? "" : r.density.toFixed(4)) },
-    { key: "voted", label: "Voted", num: true, render: (r) => formatNumber(r.voted) },
-    { key: "turnout", label: "Turnout", num: true, render: (r) => formatPercent(r.turnout),
-      csv: (r) => (r.turnout == null ? "" : r.turnout.toFixed(4)) },
-    { key: "indicativeVoted2025", label: "2025 indicative", num: true, render: (r) => formatPercent(r.indicativeVoted2025),
-      csv: (r) => (r.indicativeVoted2025 == null ? "" : r.indicativeVoted2025.toFixed(4)) },
-    { key: "indicativeVoted2024", label: "2024 indicative", num: true, render: (r) => formatPercent(r.indicativeVoted2024),
-      csv: (r) => (r.indicativeVoted2024 == null ? "" : r.indicativeVoted2024.toFixed(4)) },
+    { key: "membersTotal", label: "Members", num: true, render: (r) => formatNumber(r.membersTotal) },
+    { key: "membersTeachers", label: "Members (teachers)", num: true, render: (r) => formatNumber(r.membersTeachers) },
+    { key: "membersLeadership", label: "Members (leadership)", num: true, render: (r) => formatNumber(r.membersLeadership) },
+    { key: "membersSupport", label: "Members (support)", num: true, render: (r) => formatNumber(r.membersSupport) },
+    { key: "densityTotal", label: "Density", num: true, render: (r) => formatPercent(r.densityTotal),
+      csv: (r) => (r.densityTotal == null ? "" : r.densityTotal.toFixed(4)) },
+    { key: "densityTeachers", label: "Density (teachers)", num: true, render: (r) => formatPercent(r.densityTeachers),
+      csv: (r) => (r.densityTeachers == null ? "" : r.densityTeachers.toFixed(4)) },
+    { key: "densityLeadership", label: "Density (leadership)", num: true, render: (r) => formatPercent(r.densityLeadership),
+      csv: (r) => (r.densityLeadership == null ? "" : r.densityLeadership.toFixed(4)) },
+    { key: "densitySupport", label: "Density (support)", num: true, render: (r) => formatPercent(r.densitySupport),
+      csv: (r) => (r.densitySupport == null ? "" : r.densitySupport.toFixed(4)) },
+    { key: "membersVoted2026", label: "Voted 2026", num: true, render: (r) => formatNumber(r.membersVoted2026) },
+    { key: "membersVoted2025", label: "Voted 2025", num: true, render: (r) => formatNumber(r.membersVoted2025) },
+    { key: "membersVoted2024", label: "Voted 2024", num: true, render: (r) => formatNumber(r.membersVoted2024) },
+    { key: "turnout2026", label: "Turnout 2026", num: true, render: (r) => formatPercent(r.turnout2026),
+      csv: (r) => (r.turnout2026 == null ? "" : r.turnout2026.toFixed(4)) },
 
     { key: "repCount", label: "Reps", num: true },
     { key: "volunteers", label: "Volunteers", num: true },
@@ -96,16 +107,18 @@ function schoolColumns() {
 }
 
 const DEFAULT_KEYS = [
-  "schoolName", "phase", "laName", "trust", "overallMembers", "density",
-  "repCount", "latestNoteTitle",
+  "schoolName", "phase", "laName", "trust", "membersTotal", "densityTotal",
+  "densityTeachers", "densitySupport", "repCount", "latestNoteTitle",
 ];
 
 const PRESETS = {
   essentials: { label: "Essentials", keys: DEFAULT_KEYS },
   membership: {
     label: "Membership & ballots",
-    keys: ["schoolName", "phase", "laName", "overallMembers", "density", "voted",
-           "turnout", "indicativeVoted2025", "indicativeVoted2024"],
+    keys: ["schoolName", "phase", "laName", "membersTotal", "membersTeachers",
+           "membersLeadership", "membersSupport", "densityTotal", "densityTeachers",
+           "densityLeadership", "densitySupport", "membersVoted2026", "turnout2026",
+           "membersVoted2025", "membersVoted2024"],
   },
   organising: {
     label: "Organising",
@@ -116,9 +129,10 @@ const PRESETS = {
   },
   workforce: {
     label: "Workforce",
-    keys: ["schoolName", "laName", "schoolType", "hcWorkforce", "hcAllTeachers",
-           "hcClassroomTeachers", "hcLeadershipTeachers", "hcAllSupportStaff",
-           "hcTeachingAssistants"],
+    keys: ["schoolName", "laName", "schoolType", "headcountTotal", "headcountTeachers",
+           "headcountLeadership", "headcountSupport", "headcountThirdParty",
+           "annualTurnover", "pupilTeacherRatio", "averageMeanPay", "vacancies",
+           "averageSickDays"],
   },
   details: {
     label: "School details",
@@ -133,8 +147,10 @@ const PRESETS = {
 const PICKER_GROUPS = [
   { label: "Identity", keys: ["schoolName", "phase", "laName", "trust", "urn", "postcode"] },
   { label: "School details", keys: ["typeOfEstablishment", "establishmentStatus", "religiousCharacter", "diocese", "schoolSponsors", "federations", "schoolWebsite", "telephoneNum", "headName", "branchName", "districtName", "regionName"] },
-  { label: "Workforce", keys: ["schoolType", "hcWorkforce", "hcAllTeachers", "hcClassroomTeachers", "hcLeadershipTeachers", "hcAllSupportStaff", "hcTeachingAssistants"] },
-  { label: "Membership & ballots", keys: ["overallMembers", "density", "voted", "turnout", "indicativeVoted2025", "indicativeVoted2024"] },
+  { label: "Headcount (Stratum)", keys: ["schoolType", "headcountTotal", "headcountTeachers", "headcountLeadership", "headcountSupport"] },
+  { label: "Workforce survey", keys: ["headcountThirdParty", "annualTurnover", "pupilTeacherRatio", "averageMeanPay", "vacancies", "averageSickDays"] },
+  { label: "Membership & density", keys: ["membersTotal", "membersTeachers", "membersLeadership", "membersSupport", "densityTotal", "densityTeachers", "densityLeadership", "densitySupport"] },
+  { label: "Ballots", keys: ["membersVoted2026", "turnout2026", "membersVoted2025", "membersVoted2024"] },
   { label: "Organising engagement", keys: ["repCount", "volunteers", "wpConversations", "repRecruitedVolunteer", "joinedCommunity", "completedActivateAction", "agreedToBriefing", "holdAMeeting", "needsSupport", "pledgedToVote", "activeSEVs"] },
   { label: "Activity", keys: ["meetingsLogged", "repsRecruitedLogged", "latestNoteTitle", "noteCount", "lastNoteDate"] },
 ];
@@ -281,33 +297,50 @@ export async function renderDetail(container, { urn }) {
 
     <div class="section-title">Headline</div>
     <div class="tile-grid">
-      <div class="tile"><div class="tile-label">Workforce</div><div class="tile-value">${formatNumber(school.hcWorkforce)}</div></div>
-      <div class="tile"><div class="tile-label">Members</div><div class="tile-value">${formatNumber(school.overallMembers)}</div></div>
-      <div class="tile"><div class="tile-label">Density</div><div class="tile-value">${formatPercent(school.density)}</div></div>
+      <div class="tile"><div class="tile-label">Headcount</div><div class="tile-value">${formatNumber(school.headcountTotal)}</div></div>
+      <div class="tile"><div class="tile-label">Members</div><div class="tile-value">${formatNumber(school.membersTotal)}</div></div>
+      <div class="tile"><div class="tile-label">Density</div><div class="tile-value">${formatPercent(school.densityTotal)}</div></div>
+      <div class="tile"><div class="tile-label">Density (teachers)</div><div class="tile-value">${formatPercent(school.densityTeachers)}</div></div>
+      <div class="tile"><div class="tile-label">Density (support)</div><div class="tile-value">${formatPercent(school.densitySupport)}</div></div>
       <div class="tile"><div class="tile-label">Reps</div><div class="tile-value">${school.repCount}</div></div>
       <div class="tile"><div class="tile-label">Meetings logged</div><div class="tile-value">${school.meetingsLogged}</div></div>
       <div class="tile"><div class="tile-label">Reps recruited</div><div class="tile-value">${school.repsRecruitedLogged}</div></div>
     </div>
 
-    <div class="section-title">Workforce breakdown</div>
+    <div class="section-title">Headcount, membership &amp; density (Stratum)</div>
     <div class="card"><dl class="stat-list">
-      ${statRow("School type", escapeHtml(school.schoolType || "—"))}
-      ${statRow("Total workforce", formatNumber(school.hcWorkforce))}
-      ${statRow("All teachers", formatNumber(school.hcAllTeachers))}
-      ${statRow("Classroom teachers", formatNumber(school.hcClassroomTeachers))}
-      ${statRow("Leadership teachers", formatNumber(school.hcLeadershipTeachers))}
-      ${statRow("All support staff", formatNumber(school.hcAllSupportStaff))}
-      ${statRow("Teaching assistants", formatNumber(school.hcTeachingAssistants))}
+      ${statRow("Headcount — total", formatNumber(school.headcountTotal))}
+      ${statRow("Headcount — teachers", formatNumber(school.headcountTeachers))}
+      ${statRow("Headcount — leadership", formatNumber(school.headcountLeadership))}
+      ${statRow("Headcount — support", formatNumber(school.headcountSupport))}
+      ${statRow("Members — total", formatNumber(school.membersTotal))}
+      ${statRow("Members — teachers", formatNumber(school.membersTeachers))}
+      ${statRow("Members — leadership", formatNumber(school.membersLeadership))}
+      ${statRow("Members — support", formatNumber(school.membersSupport))}
+      ${statRow("Density — total", formatPercent(school.densityTotal))}
+      ${statRow("Density — teachers", formatPercent(school.densityTeachers))}
+      ${statRow("Density — leadership", formatPercent(school.densityLeadership))}
+      ${statRow("Density — support", formatPercent(school.densitySupport))}
+      ${statRow("Stratum export date", formatDate(school.stratumExportDate))}
     </dl></div>
 
-    <div class="section-title">Membership &amp; ballots</div>
+    <div class="section-title">Workforce survey</div>
     <div class="card"><dl class="stat-list">
-      ${statRow("Overall members", formatNumber(school.overallMembers))}
-      ${statRow("Density", formatPercent(school.density))}
-      ${statRow("Voted", formatNumber(school.voted))}
-      ${statRow("Turnout", formatPercent(school.turnout))}
-      ${statRow("2025 indicative turnout", formatPercent(school.indicativeVoted2025))}
-      ${statRow("2024 indicative turnout", formatPercent(school.indicativeVoted2024))}
+      ${statRow("School type", escapeHtml(school.schoolType || "—"))}
+      ${statRow("Headcount (third party)", formatNumber(school.headcountThirdParty))}
+      ${statRow("Annual turnover", formatPercent(school.annualTurnover))}
+      ${statRow("Pupil:teacher ratio (qualified)", school.pupilTeacherRatio ?? "–")}
+      ${statRow("Average mean pay", formatNumber(school.averageMeanPay))}
+      ${statRow("Vacancies", formatNumber(school.vacancies))}
+      ${statRow("Average sick days", school.averageSickDays ?? "–")}
+    </dl></div>
+
+    <div class="section-title">Ballots</div>
+    <div class="card"><dl class="stat-list">
+      ${statRow("Members voted — 2026 indicative", formatNumber(school.membersVoted2026))}
+      ${statRow("Turnout — 2026 indicative", formatPercent(school.turnout2026))}
+      ${statRow("Members voted — 2025 indicative", formatNumber(school.membersVoted2025))}
+      ${statRow("Members voted — 2024 indicative", formatNumber(school.membersVoted2024))}
     </dl></div>
 
     <div class="section-title">Organising engagement</div>

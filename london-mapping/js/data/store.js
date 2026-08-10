@@ -19,9 +19,12 @@ async function getGraphClient() {
 const state = {
   loaded: false,
   sourceGIAS: [],
-  sourceWorkforce: [],
+  sourceStratum: [],
+  sourcePayDashboard: [],
+  sourceWorkforceSurvey: [],
   wcToUrn: [],
-  sourceNeuDashboard: [],
+  matAliases: [],
+  reconciliations: [],
   fieldNotes: [],
   disputeTracker: [],
   branchFacts: [],
@@ -38,9 +41,12 @@ export async function loadAll() {
 
   if (isPreviewMode()) {
     state.sourceGIAS = mock.sourceGIAS;
-    state.sourceWorkforce = mock.sourceWorkforce;
+    state.sourceStratum = mock.sourceStratum;
+    state.sourcePayDashboard = mock.sourcePayDashboard;
+    state.sourceWorkforceSurvey = mock.sourceWorkforceSurvey;
     state.wcToUrn = mock.wcToUrn;
-    state.sourceNeuDashboard = mock.sourceNeuDashboard;
+    state.matAliases = mock.matAliases;
+    state.reconciliations = [...mock.reconciliations];
     state.fieldNotes = [...mock.fieldNotes];
     state.disputeTracker = [...mock.disputeTracker];
     state.branchFacts = mock.branchFacts;
@@ -114,6 +120,12 @@ export async function removeEventLog(tableName, stateKey, id) {
     await graph.deleteRow(tableName, id);
   }
   state[stateKey].splice(idx, 1);
+}
+
+export async function addReconciliation(decision) {
+  return appendRow("Reconciliations", "reconciliations", {
+    id: `rc${Date.now()}`, ...decision,
+  });
 }
 
 export async function appendSchoolGeoRows(rows) {

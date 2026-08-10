@@ -19,8 +19,10 @@ export async function renderList(container) {
       { key: "name", label: "Trust", render: (r) => `<a class="row-link" href="#/mats/${encodeURIComponent(r.name)}">${escapeHtml(r.name)}${r.isTargetMat ? " ⭐" : ""}</a>` },
       { key: "schoolCount", label: "Schools", num: true },
       { key: "boroughsPresent", label: "Boroughs", render: (r) => escapeHtml(r.boroughsPresent.join(", ")) },
-      { key: "totalStaffHeadcount", label: "Workforce", num: true, render: (r) => formatNumber(r.totalStaffHeadcount) },
-      { key: "trustDensity", label: "Density", num: true, render: (r) => formatPercent(r.trustDensity) },
+      { key: "headcountTotal", label: "Headcount", num: true, render: (r) => formatNumber(r.headcountTotal) },
+      { key: "densityTotal", label: "Density", num: true, render: (r) => formatPercent(r.densityTotal) },
+      { key: "densityTeachers", label: "Density (teachers)", num: true, render: (r) => formatPercent(r.densityTeachers) },
+      { key: "densitySupport", label: "Density (support)", num: true, render: (r) => formatPercent(r.densitySupport) },
       { key: "repCoveragePercent", label: "Rep coverage", num: true, render: (r) => formatPercent(r.repCoveragePercent) },
       { key: "noRepSchools", label: "No-rep schools", num: true },
       { key: "repCommitteeExists", label: "Rep committee", render: (r) => (r.repCommitteeExists ? "Yes" : "No") },
@@ -29,7 +31,7 @@ export async function renderList(container) {
         render: (r) => noteLinkCell(r, "MAT", r.name) },
     ],
     mats,
-    { defaultSort: "totalMembers", defaultDir: "desc" }
+    { defaultSort: "membersTotal", defaultDir: "desc" }
   );
 }
 
@@ -56,9 +58,12 @@ export async function renderDetail(container, { name }) {
       <div class="tile"><div class="tile-label">Schools</div><div class="tile-value">${mat.schoolCount}</div></div>
       <div class="tile"><div class="tile-label">Boroughs present</div><div class="tile-value text-value">${escapeHtml(mat.boroughsPresent.join(", "))}</div></div>
       <div class="tile"><div class="tile-label">Phases</div><div class="tile-value text-value">${escapeHtml(mat.phasesPresent.join(", "))}</div></div>
-      <div class="tile"><div class="tile-label">Workforce</div><div class="tile-value">${formatNumber(mat.totalStaffHeadcount)}</div></div>
-      <div class="tile"><div class="tile-label">Members</div><div class="tile-value">${formatNumber(mat.totalMembers)}</div></div>
-      <div class="tile"><div class="tile-label">Density</div><div class="tile-value">${formatPercent(mat.trustDensity)}</div></div>
+      <div class="tile"><div class="tile-label">Workforce</div><div class="tile-value">${formatNumber(mat.headcountTotal)}</div></div>
+      <div class="tile"><div class="tile-label">Members</div><div class="tile-value">${formatNumber(mat.membersTotal)}</div></div>
+      <div class="tile"><div class="tile-label">Density</div><div class="tile-value">${formatPercent(mat.densityTotal)}</div></div>
+      <div class="tile"><div class="tile-label">Density (teachers)</div><div class="tile-value">${formatPercent(mat.densityTeachers)}</div></div>
+      <div class="tile"><div class="tile-label">Density (leadership)</div><div class="tile-value">${formatPercent(mat.densityLeadership)}</div></div>
+      <div class="tile"><div class="tile-label">Density (support)</div><div class="tile-value">${formatPercent(mat.densitySupport)}</div></div>
       <div class="tile"><div class="tile-label">Rep coverage</div><div class="tile-value">${formatPercent(mat.repCoveragePercent)}</div></div>
       <div class="tile"><div class="tile-label">Member:rep ratio</div><div class="tile-value">${mat.memberRepRatio}</div></div>
       <div class="tile"><div class="tile-label">No-rep schools</div><div class="tile-value">${mat.noRepSchools}</div></div>
@@ -89,12 +94,12 @@ export async function renderDetail(container, { name }) {
     [
       { key: "schoolName", label: "School", render: (r) => `<a class="row-link" href="#/schools/${r.urn}">${escapeHtml(r.schoolName)}</a>` },
       { key: "laName", label: "Borough" },
-      { key: "overallMembers", label: "Members", num: true, render: (r) => formatNumber(r.overallMembers) },
-      { key: "density", label: "Density", num: true, render: (r) => formatPercent(r.density) },
-      { key: "turnout", label: "Indicative turnout", num: true, render: (r) => formatPercent(r.turnout) },
+      { key: "membersTotal", label: "Members", num: true, render: (r) => formatNumber(r.membersTotal) },
+      { key: "densityTotal", label: "Density", num: true, render: (r) => formatPercent(r.densityTotal) },
+      { key: "turnout2026", label: "2026 turnout", num: true, render: (r) => formatPercent(r.turnout2026) },
       { key: "repCount", label: "Reps", num: true },
     ],
     mat.schools,
-    { defaultSort: "overallMembers", defaultDir: "desc" }
+    { defaultSort: "membersTotal", defaultDir: "desc" }
   );
 }

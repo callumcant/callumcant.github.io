@@ -48,13 +48,13 @@ function resolveScope(scopeValue, { dashboard, branches, mats, disputes }) {
         disputes: disputes.filter((d) => d.branch === b.name),
         metrics: [
           ["Schools", formatNumber(b.schoolsCount)],
-          ["Workforce", formatNumber(b.headcount)],
-          ["Membership", formatNumber(b.members)],
-          ["Density", formatPercent(b.density)],
+          ["Membership", formatNumber(b.membersTotal)],
+          ["Density (teachers)", formatPercent(b.densityTeachers)],
+          ["Density (support)", formatPercent(b.densitySupport)],
+          ["Density (total)", formatPercent(b.densityTotal)],
           ["Reps", formatNumber(b.reps)],
           ["Member:rep ratio", b.memberRepRatio],
           ["No rep schools", formatNumber(b.noRepSchools)],
-          ["Members in no-rep schools", formatNumber(b.membersInNoRepSchools)],
           ["School meetings held", formatNumber(b.schoolMeetingsHeld)],
           ["Reps recruited", formatNumber(b.repsRecruited)],
           ["Reps trained", formatNumber(b.repsTrainedSinceStart)],
@@ -73,15 +73,14 @@ function resolveScope(scopeValue, { dashboard, branches, mats, disputes }) {
         metrics: [
           ["Schools", formatNumber(m.schoolCount)],
           ["Boroughs", m.boroughsPresent.length],
-          ["Workforce", formatNumber(m.totalStaffHeadcount)],
-          ["Membership", formatNumber(m.totalMembers)],
-          ["Density", formatPercent(m.trustDensity)],
+          ["Membership", formatNumber(m.membersTotal)],
+          ["Density (teachers)", formatPercent(m.densityTeachers)],
+          ["Density (support)", formatPercent(m.densitySupport)],
+          ["Density (total)", formatPercent(m.densityTotal)],
           ["Reps", formatNumber(m.reps)],
           ["Member:rep ratio", m.memberRepRatio],
           ["Rep coverage", formatPercent(m.repCoveragePercent)],
           ["No rep schools", formatNumber(m.noRepSchools)],
-          ["Members in no-rep schools", formatNumber(m.membersInNoRepSchools)],
-          ["Rep committee", m.repCommitteeExists ? "Yes" : "No"],
           ["School meetings held", formatNumber(m.meetingsHeld)],
           ["Reps recruited", formatNumber(m.repsRecruited)],
         ],
@@ -106,7 +105,7 @@ function resolveScope(scopeValue, { dashboard, branches, mats, disputes }) {
 // The six figures the original spreadsheet left blank under "membership
 // growth / density % improvement / ...". They only become answerable once
 // there is more than one snapshot to compare.
-function impactSection(series, scopeLabel) {
+function impactSection(series, scopeLabel, meetingsSeries = [], meetingsTotal = 0) {
   if (series.length < 2) {
     return `
       <div class="card">
@@ -122,8 +121,10 @@ function impactSection(series, scopeLabel) {
   const last = series[series.length - 1];
   const cards = [
     ["Membership", formatNumber(last.members), formatDelta(first.members, last.members), series.map((p) => p.members)],
-    ["Density", formatPercent(last.density), formatDelta(first.density, last.density, { percent: true }), series.map((p) => p.density)],
+    ["Density (teachers)", formatPercent(last.densityTeachers), formatDelta(first.densityTeachers, last.densityTeachers, { percent: true }), series.map((p) => p.densityTeachers)],
+    ["Density (support)", formatPercent(last.densitySupport), formatDelta(first.densitySupport, last.densitySupport, { percent: true }), series.map((p) => p.densitySupport)],
     ["Reps", formatNumber(last.reps), formatDelta(first.reps, last.reps), series.map((p) => p.reps)],
+    ["School meetings", formatNumber(meetingsTotal), null, meetingsSeries],
   ];
 
   return `
@@ -156,11 +157,11 @@ function disputeBlock(disputes) {
       ${live
         .map(
           (d) => `
-        <div class="note-card">
+        <a class="note-card note-card-link" href="#/disputes/${encodeURIComponent(d.id)}">
           <strong>${escapeHtml(d.employer)}</strong> — ${escapeHtml(d.branch)}${d.mat ? ` · ${escapeHtml(d.mat)}` : ""}
           ${ragPill(d.outcome)}
           <div class="note-meta">Issues: ${escapeHtml(d.issues.join(", "))} · Lead: ${escapeHtml(d.staffResponsible)} (${escapeHtml(d.rorIo)})</div>
-        </div>`
+        </a>`
         )
         .join("")}
       <div class="btn-row"><a class="btn" href="#/disputes">Open dispute tracker →</a></div>
@@ -183,7 +184,14 @@ export async function render(container) {
     const scope = resolveScope(scopeValue, {
       dashboard, branches, mats, disputes: state.disputeTracker,
     });
-    const series = snapshotSeries(state.snapshots, scope.schools.map((s) => s.urn));
+    const scopeUrns = new Set(scope.schools.map((s) => String(s.urn)));
+    const series = snapshotSeries(state.snapshots, [...scopeUrns]);
+    // Meetings are dated events rather than a captured level, so the trend is
+    // a running total up to each snapshot date rather than a snapshot field.
+    const scopeMeetings = state.meetings.filter((m) => scopeUrns.has(String(m.urn)));
+    const meetingsSeries = series.map(
+      (p) => scopeMeetings.filter((m) => m.date <= p.date).length
+    );
     const kpis = disputeKpis(scope.disputes);
 
     const scopeOptions = `
@@ -203,35 +211,31 @@ export async function render(container) {
       ? `
       <div class="section-title">Project branches — ${escapeHtml(scope.projectBranchNames.join(", ") || "none set")}</div>
       <div class="tile-grid tile-grid-compact">
-        ${tile("Workforce", formatNumber(scope.pb.workforce))}
-        ${tile("Membership", formatNumber(scope.pb.membership))}
-        ${tile("Density", formatPercent(scope.pb.density))}
+        ${tile("Membership", formatNumber(scope.pb.membersTotal))}
+        ${tile("Density (teachers)", formatPercent(scope.pb.densityTeachers))}
+        ${tile("Density (support)", formatPercent(scope.pb.densitySupport))}
+        ${tile("Density (total)", formatPercent(scope.pb.densityTotal))}
         ${tile("No rep schools", formatNumber(scope.pb.noRepSchools))}
         ${tile("Member:rep ratio", scope.pb.memberRepRatio)}
         ${tile("School meetings held", formatNumber(scope.pb.schoolMeetingsHeld))}
         ${tile("Reps recruited", formatNumber(scope.pb.repsRecruited))}
         ${tile("Reps trained", formatNumber(scope.pb.repsTrainedSinceStart))}
         ${tile("Live disputes", formatNumber(scope.pb.liveDisputes))}
-        ${tile("Successful indicative", formatNumber(scope.pb.successfulIndicativeBallots))}
-        ${tile("Successful formal", formatNumber(scope.pb.successfulFormalBallots))}
         ${tile("Strike days", formatNumber(scope.pb.strikeDays))}
         ${tile("Green disputes", formatNumber(scope.pb.greenDisputes))}
       </div>
 
       <div class="section-title">Project MATs — ${escapeHtml(scope.projectMatNames.join(", ") || "none set")}</div>
       <div class="tile-grid tile-grid-compact">
-        ${tile("Workforce", formatNumber(scope.pm.workforce))}
-        ${tile("Membership", formatNumber(scope.pm.membership))}
-        ${tile("Density", formatPercent(scope.pm.density))}
+        ${tile("Membership", formatNumber(scope.pm.membersTotal))}
+        ${tile("Density (teachers)", formatPercent(scope.pm.densityTeachers))}
+        ${tile("Density (support)", formatPercent(scope.pm.densitySupport))}
+        ${tile("Density (total)", formatPercent(scope.pm.densityTotal))}
         ${tile("No rep schools", formatNumber(scope.pm.noRepSchools))}
         ${tile("Member:rep ratio", scope.pm.memberRepRatio)}
-        ${tile("Members in no-rep", formatNumber(scope.pm.membersInNoRepSchools))}
-        ${tile("Rep committees", formatNumber(scope.pm.repCommittees))}
         ${tile("School meetings held", formatNumber(scope.pm.meetingsHeld))}
         ${tile("Reps recruited", formatNumber(scope.pm.repsRecruited))}
         ${tile("Live disputes", formatNumber(scope.pm.liveDisputes))}
-        ${tile("Successful indicative", formatNumber(scope.pm.successfulIndicativeBallots))}
-        ${tile("Successful formal", formatNumber(scope.pm.successfulFormalBallots))}
         ${tile("Strike days", formatNumber(scope.pm.strikeDays))}
         ${tile("Green disputes", formatNumber(scope.pm.greenDisputes))}
       </div>`
@@ -240,8 +244,6 @@ export async function render(container) {
       <div class="tile-grid tile-grid-compact">
         ${scope.metrics.map(([l, v]) => tile(l, v)).join("")}
         ${tile("Live disputes", formatNumber(kpis.liveDisputes))}
-        ${tile("Successful indicative", formatNumber(kpis.successfulIndicativeBallots))}
-        ${tile("Successful formal", formatNumber(kpis.successfulFormalBallots))}
         ${tile("Strike days", formatNumber(kpis.strikeDays))}
         ${tile("Green disputes", formatNumber(kpis.greenDisputes))}
       </div>`;
@@ -258,7 +260,7 @@ export async function render(container) {
       </div>
 
       <div class="section-title">Change over time — ${escapeHtml(scope.label)}</div>
-      ${impactSection(series, scope.label)}
+      ${impactSection(series, scope.label, meetingsSeries, scopeMeetings.length)}
       ${
         lastCapture && captureAge > 42
           ? `<div class="mock-banner">Last snapshot was ${captureAge} days ago. Weekly capture may have stopped — see docs/scheduled-snapshot.md.</div>`

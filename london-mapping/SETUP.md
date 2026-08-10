@@ -31,12 +31,27 @@ plain Excel Tables, which is what the app reads and writes.
 2. Share it with everyone who'll use the app — edit access for anyone who
    needs to add disputes, notes, meetings or reps.
 3. Delete the `EXAMPLE` rows and paste in your real data:
-   - `SourceGIAS` — your DfE GIAS export
-   - `SourceWorkforce` — your DfE School Workforce Census export
-   - `SourceNEUDashboard` — your NEU membership/organising export
-   - `WCtoURN` — workplace code → URN mapping
-   - `BranchFacts` — tick which boroughs are project branches
-   - `MatFacts` — one row per MAT you're tracking
+   - `SourceGIAS` — your DfE GIAS export. **The spine**: everything joins to it by URN.
+   - `SourceStratum` — your Stratum export. **The source of headcount *and*
+     membership**, split teacher/leadership/support. All four density figures
+     derive from these.
+   - `SourcePayDashboard` — your NEU Pay Dashboard export: ballots, engagement,
+     rep count.
+   - `SourceWorkforceSurvey` — your DfE School Workforce Census. A third-party
+     headcount cross-check plus turnover, pupil:teacher ratio, pay, vacancies
+     and sick days.
+   - `WCtoURN` — workplace code → URN mapping. Both Stratum and the Pay
+     Dashboard key on workplace code; anything unmatched shows up on the
+     Anomalies page.
+   - `MatAliases` — seeded with Compass Eko's two predecessor names. Add a row
+     whenever a trust appears under more than one name.
+   - `BranchFacts` — the five project branches are pre-ticked (Havering,
+     Hillingdon, Bromley, Wandsworth, Kensington & Chelsea).
+   - `MatFacts` — the five project MATs are pre-filled.
+
+   Every field, and which source it comes from, is documented in
+   `docs/data-dictionary.md` — generated from `data-dictionary/dictionary.json`,
+   which is what both this workbook and the app's schema are built from.
 
 **Keep the columns in the order they're in.** The app maps columns by position,
 so inserting or reordering one shifts everything after it. Adding data below
@@ -114,6 +129,14 @@ workbook it connected to, and list every table as OK.
 **Refreshing source data** stays a manual paste into the workbook, exactly as
 before — the app reads whatever is currently in those tables, so nothing needs
 redeploying when the data changes.
+
+**Check the Anomalies page after every refresh.** Around 5–10% of schools won't
+line up across GIAS, Stratum and the Pay Dashboard: workplace codes with no URN,
+schools missing from one source, members still attached to a school that has
+closed. The page lists them and lets you record a decision — link this code to
+that school, point a closed school at its successor, accept, or exclude. Those
+decisions are stored in the workbook, so each one only has to be made once
+rather than at every refresh.
 
 **Snapshots** are captured automatically: the first person to open the site in
 a given week triggers one silently. That covers normal use, but a quiet week

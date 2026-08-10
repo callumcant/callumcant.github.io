@@ -7,6 +7,7 @@ import * as schoolsPage from "./pages/schools.js";
 import * as disputesPage from "./pages/disputes.js";
 import * as notesPage from "./pages/notes.js";
 import * as mapPage from "./pages/map.js";
+import * as anomaliesPage from "./pages/anomalies.js";
 import * as setupPage from "./pages/setup.js";
 import * as signinPage from "./pages/signin.js";
 import { getAccount } from "./auth.js";
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { path: "/map", label: "Map" },
   { path: "/disputes", label: "Dispute tracker" },
   { path: "/notes", label: "Field notes" },
+  { path: "/anomalies", label: "Anomalies" },
   { path: "/setup", label: "Setup" },
 ];
 
@@ -72,6 +74,7 @@ async function boot() {
   registerRoute("/notes", notesPage.renderList);
   registerRoute("/notes/new", notesPage.renderForm);
   registerRoute("/map", mapPage.render);
+  registerRoute("/anomalies", anomaliesPage.render);
   registerRoute("/setup", setupPage.render);
 
   initRouter(content, { onNavigate: updateActiveNav });

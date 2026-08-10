@@ -62,12 +62,15 @@ export function buildSnapshotRows(schools, snapshotDate = todayIso()) {
   return schools.map((s) => ({
     snapshotDate,
     urn: s.urn,
-    overallMembers: s.overallMembers,
+    membersTotal: s.membersTotal,
+    membersTeachers: s.membersTeachers,
+    membersLeadership: s.membersLeadership,
+    membersSupport: s.membersSupport,
+    headcountTotal: s.headcountTotal,
+    headcountTeachers: s.headcountTeachers,
+    headcountLeadership: s.headcountLeadership,
+    headcountSupport: s.headcountSupport,
     repCount: s.repCount,
-    hcWorkforce: s.hcWorkforce,
-    voted: s.voted,
-    volunteers: s.volunteers,
-    wpConversations: s.wpConversations,
   }));
 }
 
@@ -80,18 +83,30 @@ export function snapshotSeries(snapshots, urns = null) {
     if (urnFilter && !urnFilter.has(String(s.urn))) continue;
     if (!byDate.has(s.snapshotDate)) {
       byDate.set(s.snapshotDate, {
-        date: s.snapshotDate, members: 0, reps: 0, workforce: 0, schools: 0,
+        date: s.snapshotDate, members: 0, membersTeachers: 0, membersSupport: 0,
+        reps: 0, headcount: 0, headcountTeachers: 0, headcountSupport: 0, schools: 0,
       });
     }
     const point = byDate.get(s.snapshotDate);
-    point.members += s.overallMembers || 0;
+    point.members += s.membersTotal || 0;
+    point.membersTeachers += s.membersTeachers || 0;
+    point.membersSupport += s.membersSupport || 0;
     point.reps += s.repCount || 0;
-    point.workforce += s.hcWorkforce || 0;
+    point.headcount += s.headcountTotal || 0;
+    point.headcountTeachers += s.headcountTeachers || 0;
+    point.headcountSupport += s.headcountSupport || 0;
     point.schools += 1;
   }
+  // Density per point is summed-then-divided, matching the dictionary's rule
+  // that it can never be averaged from constituent parts.
   return [...byDate.values()]
     .sort((a, b) => (a.date < b.date ? -1 : 1))
-    .map((p) => ({ ...p, density: p.workforce ? p.members / p.workforce : null }));
+    .map((p) => ({
+      ...p,
+      density: p.headcount ? p.members / p.headcount : null,
+      densityTeachers: p.headcountTeachers ? p.membersTeachers / p.headcountTeachers : null,
+      densitySupport: p.headcountSupport ? p.membersSupport / p.headcountSupport : null,
+    }));
 }
 
 let captureAttempted = false;

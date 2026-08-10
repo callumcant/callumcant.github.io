@@ -1,0 +1,1474 @@
+{
+  "$comment": "SINGLE SOURCE OF TRUTH for the app's data model. build_workbook.py reads this directly; generate_schemas.py writes js/data/table-schemas.js from it; docs/data-dictionary.md is generated from it. Edit here, then run data-dictionary/generate_schemas.py and workbook-template/build_workbook.py.",
+  "derivedFields": [
+    {
+      "name": "Density (total)",
+      "formula": "Membership (total) / Headcount (total)",
+      "source": "Derived",
+      "notes": "MAT and borough density MUST be recalculated from summed headcount and membership. It cannot be averaged from constituent school densities."
+    },
+    {
+      "name": "Density (teachers)",
+      "formula": "Membership (teachers) / Headcount (teachers)",
+      "source": "Derived",
+      "notes": "Same rule: sum the parts, then divide."
+    },
+    {
+      "name": "Density (leadership)",
+      "formula": "Membership (leadership) / Headcount (leadership)",
+      "source": "Derived",
+      "notes": "Same rule: sum the parts, then divide."
+    },
+    {
+      "name": "Density (support)",
+      "formula": "Membership (support) / Headcount (support)",
+      "source": "Derived",
+      "notes": "Same rule: sum the parts, then divide."
+    },
+    {
+      "name": "No rep schools",
+      "formula": "count of schools where Rep count = 0",
+      "source": "Derived"
+    },
+    {
+      "name": "Rep:member ratio",
+      "formula": "summed membership / summed rep count",
+      "source": "Derived"
+    },
+    {
+      "name": "Number of notes",
+      "formula": "count of FieldNotes rows for the subject",
+      "source": "Derived"
+    },
+    {
+      "name": "School meetings held",
+      "formula": "count of Meetings rows in scope",
+      "source": "Derived"
+    },
+    {
+      "name": "Reps recruited",
+      "formula": "count of RepsRecruited rows in scope",
+      "source": "Derived"
+    },
+    {
+      "name": "Number of schools (dispute)",
+      "formula": "count of URNs in the dispute's Affected URNs",
+      "source": "Derived"
+    },
+    {
+      "name": "In live dispute",
+      "formula": "school URN appears in a dispute where Live = Yes",
+      "source": "Derived"
+    }
+  ],
+  "tables": [
+    {
+      "name": "SourceGIAS",
+      "description": "DfE Get Information About Schools export. The central spine: every other source joins to this by URN.",
+      "editedByApp": false,
+      "note": "Paste your DfE GIAS export here (https://get-information-schools.service.gov.uk/). Not edited by the app.",
+      "fields": [
+        {
+          "key": "urn",
+          "header": "URN",
+          "type": "number",
+          "source": "GIAS",
+          "inDictionary": true,
+          "spine": "Central spine"
+        },
+        {
+          "key": "schoolName",
+          "header": "School name",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": true,
+          "spine": "Central spine"
+        },
+        {
+          "key": "typeOfEstablishment",
+          "header": "Type of establishment",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": true,
+          "spine": "Central spine"
+        },
+        {
+          "key": "phase",
+          "header": "Phase",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": true,
+          "spine": "Central spine"
+        },
+        {
+          "key": "laName",
+          "header": "LA (borough)",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": true,
+          "spine": "Central spine"
+        },
+        {
+          "key": "establishmentStatus",
+          "header": "Establishment status",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": false,
+          "spine": "Central spine",
+          "notes": "Carried beyond the dictionary. Load-bearing for anomaly detection: identifies closed schools that still carry members."
+        },
+        {
+          "key": "religiousCharacter",
+          "header": "Religious character",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": false,
+          "spine": "Central spine",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "diocese",
+          "header": "Diocese",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": false,
+          "spine": "Central spine",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "trusts",
+          "header": "Trusts (MAT)",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": true,
+          "spine": "Central spine",
+          "notes": "Normalised through MatAliases before grouping, so merged and renamed trusts fold together."
+        },
+        {
+          "key": "schoolSponsors",
+          "header": "School sponsors",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": false,
+          "spine": "Central spine",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "federations",
+          "header": "Federations",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": false,
+          "spine": "Central spine",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "postcode",
+          "header": "Postcode",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": true,
+          "spine": "Central spine",
+          "notes": "Geocoded once into SchoolGeo for the map."
+        },
+        {
+          "key": "schoolWebsite",
+          "header": "School website",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": true,
+          "spine": "Central spine"
+        },
+        {
+          "key": "telephoneNum",
+          "header": "Telephone",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": false,
+          "spine": "Central spine",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "headTitle",
+          "header": "Head title",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": false,
+          "spine": "Central spine",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "headFirstName",
+          "header": "Head first name",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": false,
+          "spine": "Central spine",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "headLastName",
+          "header": "Head last name",
+          "type": "text",
+          "source": "GIAS",
+          "inDictionary": false,
+          "spine": "Central spine",
+          "notes": "Carried beyond the dictionary."
+        }
+      ],
+      "example": [
+        100097,
+        "EXAMPLE Rachel McMillan Nursery School",
+        "LA nursery school",
+        "Nursery",
+        "Greenwich",
+        "Open",
+        "Does not apply",
+        "Not applicable",
+        "",
+        "",
+        "",
+        "SE8 3EH",
+        "www.example.sch.uk",
+        "020 7946 0000",
+        "Ms",
+        "Example",
+        "Head"
+      ]
+    },
+    {
+      "name": "SourceStratum",
+      "description": "Stratum membership export. The authoritative source for BOTH headcount and membership, split teacher/leadership/support. Density is derived from these.",
+      "editedByApp": false,
+      "note": "Paste your Stratum export here (the 'Full Membership List for Stats purposes' report). This is the primary source for headcount and membership — the workforce survey's headcount is treated as a third-party cross-check. Not edited by the app.",
+      "fields": [
+        {
+          "key": "workplaceCode",
+          "header": "Workplace code",
+          "type": "text",
+          "source": "Stratum",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "workplaceName",
+          "header": "Workplace name",
+          "type": "text",
+          "source": "Stratum",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary; useful when reconciling unmatched codes."
+        },
+        {
+          "key": "headcountTotal",
+          "header": "Headcount (total)",
+          "type": "number",
+          "source": "Stratum",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "headcountTeachers",
+          "header": "Headcount (teachers)",
+          "type": "number",
+          "source": "Stratum",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "headcountLeadership",
+          "header": "Headcount (leadership)",
+          "type": "number",
+          "source": "Stratum",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "headcountSupport",
+          "header": "Headcount (support)",
+          "type": "number",
+          "source": "Stratum",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "membersTotal",
+          "header": "Membership (total)",
+          "type": "number",
+          "source": "Stratum",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "membersTeachers",
+          "header": "Membership (teachers)",
+          "type": "number",
+          "source": "Stratum",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "membersLeadership",
+          "header": "Membership (leadership)",
+          "type": "number",
+          "source": "Stratum",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "membersSupport",
+          "header": "Membership (support)",
+          "type": "number",
+          "source": "Stratum",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "exportDate",
+          "header": "Export date",
+          "type": "date",
+          "source": "Stratum",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary; records how current the figures are."
+        }
+      ],
+      "example": [
+        "WP020292",
+        "EXAMPLE Rachel McMillan Nursery School",
+        35,
+        8,
+        2,
+        25,
+        19,
+        6,
+        1,
+        12,
+        "2026-07-21"
+      ]
+    },
+    {
+      "name": "SourcePayDashboard",
+      "description": "NEU Pay Dashboard export. Source for ballot participation, organising engagement and rep count.",
+      "editedByApp": false,
+      "note": "Paste your NEU Pay Dashboard export here. Membership and headcount now come from Stratum instead — this source covers ballots, engagement and rep count. Not edited by the app.",
+      "fields": [
+        {
+          "key": "workplaceCode",
+          "header": "Workplace code",
+          "type": "text",
+          "source": "Pay Dashboard",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "workplaceName",
+          "header": "Workplace name",
+          "type": "text",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "repCount",
+          "header": "Rep count",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Not listed in the dictionary, but 'No rep schools' and 'Rep:member ratio' derive from it. Confirmed as a Pay Dashboard field."
+        },
+        {
+          "key": "membersVoted2026",
+          "header": "Members voted (2026 indicative)",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "membersVoted2025",
+          "header": "Members voted (2025 indicative)",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "membersVoted2024",
+          "header": "Members voted (2024 indicative)",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "turnout2026",
+          "header": "Turnout (2026 indicative)",
+          "type": "percent",
+          "source": "Pay Dashboard",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Stored as a fraction (0.72 = 72%). Only 2026 carries a turnout figure in the dictionary; earlier years are counts only."
+        },
+        {
+          "key": "volunteers",
+          "header": "Volunteers",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "wpConversations",
+          "header": "WP conversations",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "activeSEVs",
+          "header": "Active SEVs",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "repRecruitedVolunteer",
+          "header": "Rep recruited volunteer",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "joinedCommunity",
+          "header": "Joined community",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "completedActivateAction",
+          "header": "Completed activate action",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "agreedToBriefing",
+          "header": "Agreed to briefing",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "holdAMeeting",
+          "header": "Hold a meeting",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "needsSupport",
+          "header": "Needs support",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "pledgedToVote",
+          "header": "Pledged to vote",
+          "type": "number",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "branchName",
+          "header": "Branch name",
+          "type": "text",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "districtName",
+          "header": "District name",
+          "type": "text",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "regionName",
+          "header": "Region name",
+          "type": "text",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "importDate",
+          "header": "Import date",
+          "type": "date",
+          "source": "Pay Dashboard",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "Carried beyond the dictionary."
+        }
+      ],
+      "example": [
+        "WP020292",
+        "EXAMPLE Rachel McMillan Nursery School",
+        1,
+        14,
+        12,
+        10,
+        0.736,
+        3,
+        6,
+        1,
+        1,
+        2,
+        9,
+        1,
+        1,
+        0,
+        5,
+        "Greenwich State Education",
+        "Greenwich",
+        "London",
+        "2026-07-21"
+      ]
+    },
+    {
+      "name": "SourceWorkforceSurvey",
+      "description": "DfE School Workforce Census. Third-party cross-check on headcount, plus workload and pay indicators not available elsewhere.",
+      "editedByApp": false,
+      "note": "Paste your DfE School Workforce Census export here. Headcount here is a THIRD-PARTY figure — Stratum is the source used for density. Not edited by the app.",
+      "fields": [
+        {
+          "key": "urn",
+          "header": "URN",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via URN"
+        },
+        {
+          "key": "headcountThirdParty",
+          "header": "Headcount (third party)",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via URN",
+          "notes": "The census's own headcount. Kept as a cross-check against Stratum, not used as the density denominator."
+        },
+        {
+          "key": "annualTurnover",
+          "header": "Annual turnover (total)",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via URN"
+        },
+        {
+          "key": "pupilTeacherRatio",
+          "header": "Pupil:teacher ratio (qualified)",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via URN"
+        },
+        {
+          "key": "averageMeanPay",
+          "header": "Average mean pay",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via URN"
+        },
+        {
+          "key": "vacancies",
+          "header": "Vacancies",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via URN"
+        },
+        {
+          "key": "averageSickDays",
+          "header": "Average sick days",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via URN"
+        },
+        {
+          "key": "schoolName",
+          "header": "School name",
+          "type": "text",
+          "source": "School workforce survey",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via URN",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "laName",
+          "header": "LA (borough)",
+          "type": "text",
+          "source": "School workforce survey",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via URN",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "schoolType",
+          "header": "School type",
+          "type": "text",
+          "source": "School workforce survey",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via URN",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "hcAllTeachers",
+          "header": "All teachers",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via URN",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "hcClassroomTeachers",
+          "header": "Classroom teachers",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via URN",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "hcLeadershipTeachers",
+          "header": "Leadership teachers",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via URN",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "hcAllSupportStaff",
+          "header": "All support staff",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via URN",
+          "notes": "Carried beyond the dictionary."
+        },
+        {
+          "key": "hcTeachingAssistants",
+          "header": "Teaching assistants",
+          "type": "number",
+          "source": "School workforce survey",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via URN",
+          "notes": "Carried beyond the dictionary."
+        }
+      ],
+      "example": [
+        100097,
+        35,
+        0.12,
+        18.4,
+        41200,
+        2,
+        4.6,
+        "EXAMPLE Rachel McMillan Nursery School",
+        "Greenwich",
+        "LA maintained nursery",
+        8,
+        6,
+        2,
+        27,
+        15
+      ]
+    },
+    {
+      "name": "WCtoURN",
+      "description": "Lookup joining NEU workplace codes to DfE URNs. Both Stratum and the Pay Dashboard key on workplace code; everything else keys on URN.",
+      "editedByApp": false,
+      "note": "Maps NEU workplace codes to DfE URNs. Codes that don't map appear on the Anomalies page — resolve them there rather than editing rollups.",
+      "fields": [
+        {
+          "key": "workplaceCode",
+          "header": "Workplace code",
+          "type": "text",
+          "source": "Stratum",
+          "inDictionary": true,
+          "spine": "Matched to GIAS via Workplace code to URN conversion"
+        },
+        {
+          "key": "urn",
+          "header": "URN",
+          "type": "number",
+          "source": "GIAS",
+          "inDictionary": true,
+          "spine": "Central spine"
+        }
+      ],
+      "example": [
+        "WP020292",
+        100097
+      ]
+    },
+    {
+      "name": "MatAliases",
+      "description": "Folds variant trust names onto one canonical MAT — mergers, renames, and GIAS/Stratum spelling differences.",
+      "editedByApp": false,
+      "note": "One row per alternative name. E.g. 'Compass Partnership of Schools' and 'EKO Trust' both -> 'Compass Eko'. Prevents a merged trust appearing as two MATs.",
+      "fields": [
+        {
+          "key": "alias",
+          "header": "Alias (as it appears in source data)",
+          "type": "text",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "canonicalMat",
+          "header": "Canonical MAT name",
+          "type": "text",
+          "source": "Derived",
+          "inDictionary": false
+        }
+      ],
+      "example": [
+        "EXAMPLE Old Trust Name",
+        "EXAMPLE Trust"
+      ]
+    },
+    {
+      "name": "FieldNotes",
+      "description": "Free-text notes attached to a school, MAT or branch.",
+      "editedByApp": true,
+      "note": "Edited by the app's Field notes page. Subject is a URN for School-level notes, or the branch/MAT name otherwise.",
+      "fields": [
+        {
+          "key": "id",
+          "header": "ID",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "date",
+          "header": "Date",
+          "type": "date",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "level",
+          "header": "Level",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "subject",
+          "header": "Subject",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "title",
+          "header": "Title",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false,
+          "notes": "Carried beyond the dictionary; used as the link text in list views."
+        },
+        {
+          "key": "note",
+          "header": "Note",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "author",
+          "header": "Author",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false,
+          "notes": "Carried beyond the dictionary."
+        }
+      ],
+      "dv": {
+        "C": [
+          "School",
+          "MAT",
+          "Branch"
+        ]
+      },
+      "example": [
+        "n1",
+        "2026-01-15",
+        "School",
+        "100097",
+        "EXAMPLE — how to log a school note",
+        "This is how you write a note for a single school. Subject = the URN.",
+        "EXAMPLE Author"
+      ]
+    },
+    {
+      "name": "DisputeTracker",
+      "description": "Live and closed industrial disputes, attached to the specific schools affected.",
+      "editedByApp": true,
+      "note": "Edited by the app's Dispute tracker page. 'Affected URNs' is a comma-separated list chosen by searching for schools; the number of schools derives from it. Percentages are fractions (0.72 = 72%).",
+      "fields": [
+        {
+          "key": "id",
+          "header": "ID",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "employer",
+          "header": "Employer",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "mat",
+          "header": "MAT",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "branch",
+          "header": "Branch",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "urns",
+          "header": "Affected URNs",
+          "type": "list",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry",
+          "notes": "Comma-separated URNs. Makes the map's dispute layer exact rather than inferred from branch/MAT."
+        },
+        {
+          "key": "live",
+          "header": "Live",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "rorIo",
+          "header": "Dispute lead (IO/ROR/SIO)",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "staffResponsible",
+          "header": "Dispute lead (name)",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "issues",
+          "header": "Dispute issues",
+          "type": "list",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "dateIndicativeOpens",
+          "header": "Indicative opens (date)",
+          "type": "date",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "tradeDisputeLetter",
+          "header": "Trade dispute letter (doc link)",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "resolvedPriorToAction",
+          "header": "Resolved prior to action (y/n)",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "indicativePercent",
+          "header": "Indicative %",
+          "type": "percent",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "membershipAtIndicative",
+          "header": "Membership at indicative",
+          "type": "number",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "formalBallotRequest",
+          "header": "Formal ballot request (doc link)",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false,
+          "notes": "Carried from the original spreadsheet."
+        },
+        {
+          "key": "noticeOfFormalBallot",
+          "header": "Notice of formal ballot (doc link)",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "formalBallotPercent",
+          "header": "Formal %",
+          "type": "percent",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "noticeOfStrikeDates",
+          "header": "Notice of strike dates (doc link)",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "dateOfResolution",
+          "header": "Date of resolution",
+          "type": "date",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "outcome",
+          "header": "Outcome (RAG)",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "totalStrikeDays",
+          "header": "Total strike days",
+          "type": "number",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        },
+        {
+          "key": "endOfDisputeReport",
+          "header": "End of dispute report (doc link)",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN search on entry"
+        }
+      ],
+      "dv": {
+        "F": [
+          "Yes",
+          "No"
+        ],
+        "G": [
+          "ROR",
+          "IO",
+          "SIO"
+        ],
+        "L": [
+          "Yes",
+          "No"
+        ],
+        "U": [
+          "Red",
+          "Amber",
+          "Green"
+        ]
+      },
+      "example": [
+        "d1",
+        "EXAMPLE Academy Trust",
+        "EXAMPLE MAT",
+        "Greenwich",
+        "100097",
+        "Yes",
+        "ROR",
+        "EXAMPLE Organiser",
+        "Redundancies, Facility time",
+        "2026-01-01",
+        "",
+        "No",
+        0.72,
+        18,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        0,
+        ""
+      ]
+    },
+    {
+      "name": "BranchFacts",
+      "description": "Per-borough facts that aren't derivable from any export.",
+      "editedByApp": false,
+      "note": "One row per London borough. 'Is project branch?' controls the dashboard's headline KPIs and the star in list views. School meetings are NOT counted here — they come from the Meetings table.",
+      "fields": [
+        {
+          "key": "branch",
+          "header": "Branch",
+          "type": "text",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "isProjectBranch",
+          "header": "Is project branch?",
+          "type": "yesno",
+          "source": "Derived",
+          "inDictionary": true,
+          "notes": "Highlighted in multiple locations via star."
+        },
+        {
+          "key": "repsTrainedSinceStart",
+          "header": "Reps trained since start",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false,
+          "notes": "Manual until training data is pipelined in. Distinct from reps RECRUITED, which is an event log."
+        }
+      ],
+      "dv": {
+        "B": [
+          "Yes",
+          "No"
+        ]
+      }
+    },
+    {
+      "name": "MatFacts",
+      "description": "Per-MAT facts that aren't derivable from any export.",
+      "editedByApp": false,
+      "note": "One row per MAT you're tracking. Use the canonical name — see MatAliases if a trust appears under more than one name in the source data.",
+      "fields": [
+        {
+          "key": "mat",
+          "header": "MAT",
+          "type": "text",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "isTargetMat",
+          "header": "Is target MAT?",
+          "type": "yesno",
+          "source": "Derived",
+          "inDictionary": true,
+          "notes": "Highlighted in multiple locations via star."
+        },
+        {
+          "key": "repCommitteeExists",
+          "header": "Rep committee exists?",
+          "type": "yesno",
+          "source": "Derived",
+          "inDictionary": false
+        }
+      ],
+      "dv": {
+        "B": [
+          "Yes",
+          "No"
+        ],
+        "C": [
+          "Yes",
+          "No"
+        ]
+      }
+    },
+    {
+      "name": "Meetings",
+      "description": "Append-only log of school meetings held.",
+      "editedByApp": true,
+      "note": "Written by the app from a school's page. Branch and project meeting counts derive from this — do not keep a separate tally.",
+      "fields": [
+        {
+          "key": "id",
+          "header": "ID",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "date",
+          "header": "Date",
+          "type": "date",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN linked form"
+        },
+        {
+          "key": "urn",
+          "header": "URN",
+          "type": "number",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN linked form"
+        },
+        {
+          "key": "loggedBy",
+          "header": "Logged by",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        }
+      ],
+      "example": [
+        "m1",
+        "2026-01-20",
+        100097,
+        "EXAMPLE Organiser"
+      ]
+    },
+    {
+      "name": "RepsRecruited",
+      "description": "Append-only log of reps recruited.",
+      "editedByApp": true,
+      "note": "Written by the app from a school's page. Distinct from reps TRAINED, which is still a manual figure on BranchFacts.",
+      "fields": [
+        {
+          "key": "id",
+          "header": "ID",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "date",
+          "header": "Date",
+          "type": "date",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN linked form"
+        },
+        {
+          "key": "urn",
+          "header": "URN",
+          "type": "number",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN linked form"
+        },
+        {
+          "key": "repName",
+          "header": "Rep name",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN linked form"
+        },
+        {
+          "key": "loggedBy",
+          "header": "Logged by",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        }
+      ],
+      "example": [
+        "r1",
+        "2026-01-22",
+        100097,
+        "EXAMPLE Rep",
+        "EXAMPLE Organiser"
+      ]
+    },
+    {
+      "name": "Snapshots",
+      "description": "Append-only weekly capture of the figures that move, so organising impact is measurable over time.",
+      "editedByApp": true,
+      "note": "Written automatically by the app. NEVER edit or delete past rows — this is the only record of how things looked at the time and it cannot be reconstructed.",
+      "fields": [
+        {
+          "key": "snapshotDate",
+          "header": "Snapshot date",
+          "type": "date",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "urn",
+          "header": "URN",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "membersTotal",
+          "header": "Membership (total)",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "membersTeachers",
+          "header": "Membership (teachers)",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "membersLeadership",
+          "header": "Membership (leadership)",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "membersSupport",
+          "header": "Membership (support)",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "headcountTotal",
+          "header": "Headcount (total)",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "headcountTeachers",
+          "header": "Headcount (teachers)",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "headcountLeadership",
+          "header": "Headcount (leadership)",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "headcountSupport",
+          "header": "Headcount (support)",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "repCount",
+          "header": "Rep count",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        }
+      ],
+      "example": [
+        "2026-01-06",
+        100097,
+        19,
+        6,
+        1,
+        12,
+        35,
+        8,
+        2,
+        25,
+        1
+      ]
+    },
+    {
+      "name": "Reconciliations",
+      "description": "Durable decisions about data anomalies, so the same reconciliation isn't redone at every data refresh.",
+      "editedByApp": true,
+      "note": "Written by the app's Anomalies page. Append-only: superseding a decision means adding a newer row, not editing an old one.",
+      "fields": [
+        {
+          "key": "id",
+          "header": "ID",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "anomalyType",
+          "header": "Anomaly type",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "key",
+          "header": "Key (URN or workplace code)",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "action",
+          "header": "Action",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false,
+          "notes": "link | successor | accept | exclude"
+        },
+        {
+          "key": "targetKey",
+          "header": "Target key",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false,
+          "notes": "The URN a link/successor points at. Blank for accept/exclude."
+        },
+        {
+          "key": "note",
+          "header": "Note",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "decidedBy",
+          "header": "Decided by",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "decidedDate",
+          "header": "Decided date",
+          "type": "date",
+          "source": "App form",
+          "inDictionary": false
+        }
+      ],
+      "dv": {
+        "D": [
+          "link",
+          "successor",
+          "accept",
+          "exclude"
+        ]
+      },
+      "example": [
+        "rc1",
+        "unmatched-workplace-code",
+        "WP999999",
+        "link",
+        "100097",
+        "EXAMPLE — code belonged to the school before it converted",
+        "EXAMPLE Organiser",
+        "2026-01-25"
+      ]
+    },
+    {
+      "name": "SchoolGeo",
+      "description": "Cached postcode coordinates for the map, so the lookup runs once rather than every page load.",
+      "editedByApp": true,
+      "note": "Populated by the Map page's 'Locate missing schools' button. Safe to delete rows to force a re-lookup.",
+      "fields": [
+        {
+          "key": "urn",
+          "header": "URN",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "lat",
+          "header": "Latitude",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "lon",
+          "header": "Longitude",
+          "type": "number",
+          "source": "Derived",
+          "inDictionary": false
+        },
+        {
+          "key": "geocodedDate",
+          "header": "Geocoded date",
+          "type": "date",
+          "source": "Derived",
+          "inDictionary": false
+        }
+      ],
+      "example": [
+        100097,
+        51.481,
+        -0.0261,
+        "2026-01-06"
+      ]
+    }
+  ]
+}
