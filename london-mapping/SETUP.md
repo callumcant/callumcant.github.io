@@ -37,8 +37,16 @@ plain Excel Tables the app can read/write directly.
    only" (single tenant) — this is what restricts sign-in to your union's
    accounts.
 4. **Redirect URI**: platform **Single-page application (SPA)**, value
-   `https://<your-username>.github.io/london-mapping/` (the exact URL the
-   site is published at — include the trailing slash).
+   `https://callumcant.github.io/username.github.io/london-mapping/`
+   — the exact URL the site is published at, including the trailing slash.
+   **Check this against the "Your site is live at ..." line in the repo's
+   Settings → Pages before entering it.** It looks doubled-up because the
+   repo is currently named `username.github.io` rather than
+   `callumcant.github.io`; if the repo is renamed to match the account
+   (which shortens the URL to
+   `https://callumcant.github.io/london-mapping/`), do that **before** this
+   step, or the sign-in will fail with a redirect-URI mismatch until an
+   admin edits the registration.
 5. After creation, note down from the **Overview** page:
    - **Application (client) ID**
    - **Directory (tenant) ID**
