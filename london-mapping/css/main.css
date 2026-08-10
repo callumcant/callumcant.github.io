@@ -604,3 +604,93 @@ table.data-table.sticky-first td:first-child::after {
     to { opacity: 1; transform: translate(-50%, 0); }
   }
 }
+
+/* Compact stat tiles — the dashboard carries 13 figures per block, which the
+   spec's 36-48px hero figure was never meant for. Deliberate step down to
+   --text-lg so the whole block reads at a glance instead of scrolling. */
+.tile-grid-compact { grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: var(--space-2); }
+.tile-compact { padding: var(--space-3) var(--space-4); }
+.tile-compact .tile-value { font-size: var(--text-lg); }
+.tile-compact .tile-label { margin-bottom: var(--space-1); }
+
+.trend-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.trend-footnote { margin: var(--space-2) 0 0; }
+
+.scope-bar { align-items: center; }
+.scope-bar label { font-size: var(--text-xs); color: var(--text-secondary); }
+.scope-bar select { min-width: 260px; }
+
+.muted-cell { color: var(--text-muted); }
+.note-count {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  font-weight: var(--weight-semibold);
+}
+
+/* Micro-form dialog */
+dialog.micro-form {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-5) var(--space-6);
+  width: min(420px, 92vw);
+}
+dialog.micro-form::backdrop { background: rgba(0, 0, 0, 0.4); }
+dialog.micro-form h2 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+}
+.micro-form-fields { display: flex; flex-direction: column; gap: var(--space-3); }
+
+/* Map view */
+.map-canvas {
+  height: min(62vh, 620px);
+  min-height: 380px;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+/* Leaflet sets its own popup/control colours; nudge them onto our surfaces so
+   the map doesn't read as a white rectangle in dark mode. */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+.leaflet-container { font-family: var(--font-ui); }
+.map-popup dl { margin: var(--space-2) 0; display: grid; gap: 2px; }
+.map-popup dl div { display: flex; justify-content: space-between; gap: var(--space-4); }
+.map-popup dt { color: var(--text-secondary); }
+.map-popup dd { margin: 0; font-weight: var(--weight-semibold); }
+.map-popup-meta { color: var(--text-muted); font-size: var(--text-2xs); }
+.map-popup-flag {
+  margin: var(--space-2) 0;
+  color: var(--color-critical);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-2xs);
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+  font-size: var(--text-2xs);
+  color: var(--text-secondary);
+}
+.legend-item { display: inline-flex; align-items: center; gap: var(--space-2); }
+.legend-swatch {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--swatch);
+  background: var(--swatch);
+}
+.legend-swatch.legend-hollow { background: var(--surface-card); }
+.legend-swatch.legend-dot-sm { width: 7px; height: 7px; }
+.legend-swatch.legend-dot-md { width: 11px; height: 11px; }
+.legend-swatch.legend-dot-lg { width: 15px; height: 15px; }
+
+.plain-list { margin: 0; padding-left: var(--space-5); }
+.plain-list li { padding: 2px 0; }

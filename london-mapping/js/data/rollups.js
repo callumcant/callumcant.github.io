@@ -119,6 +119,7 @@ export function buildSchoolLevel(state) {
       repsRecruitedLogged: recruitedByUrn.get(school.urn) || 0,
       noteCount: notes.length,
       lastNoteDate: lastNote?.date ?? null,
+      latestNoteTitle: lastNote?.title ?? null,
     };
   });
 }
@@ -163,6 +164,7 @@ export function buildMatLevel(schools, state) {
       repsRecruited: sum(matSchools, (s) => s.repsRecruitedLogged),
       noteCount: notes.length,
       lastNoteDate: lastNote?.date ?? null,
+      latestNoteTitle: lastNote?.title ?? null,
       schools: matSchools,
     };
   });
@@ -215,12 +217,13 @@ export function buildBranchLevel(schools, state) {
       repsTrainedSinceStart: facts.repsTrainedSinceStart ?? 0,
       noteCount: notes.length,
       lastNoteDate: lastNote?.date ?? null,
+      latestNoteTitle: lastNote?.title ?? null,
       schools: branchSchools,
     };
   });
 }
 
-function disputeKpis(disputes) {
+export function disputeKpis(disputes) {
   return {
     liveDisputes: disputes.filter((d) => d.live === "Yes").length,
     successfulIndicativeBallots: disputes.filter(

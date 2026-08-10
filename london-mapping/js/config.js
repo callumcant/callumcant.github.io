@@ -1,21 +1,45 @@
-// Central config. Flip USE_MOCK_DATA to false once Entra/Graph are wired up
-// (see SETUP.md) and fill in the msal/graph values below.
+// ===========================================================================
+// GOING LIVE: fill in these three values and the site switches from sample
+// data to your real workbook. There is nothing else to change — no flag to
+// flip, no IDs to look up. See SETUP.md for where each value comes from.
+//
+// You can edit this file directly on github.com (open it, click the pencil
+// icon, commit) — no need to install anything.
+// ===========================================================================
 export const CONFIG = {
-  USE_MOCK_DATA: true,
+  // From your IT/Microsoft 365 admin, after they register the app.
+  clientId: "REPLACE_WITH_ENTRA_APP_CLIENT_ID",
+  tenantId: "REPLACE_WITH_ENTRA_TENANT_ID",
 
-  msal: {
-    clientId: "REPLACE_WITH_ENTRA_APP_CLIENT_ID",
-    tenantId: "REPLACE_WITH_ENTRA_TENANT_ID",
-    redirectUri: window.location.origin + window.location.pathname,
-  },
+  // The workbook's address in SharePoint/Teams. Open the file in the browser
+  // and copy the URL from the address bar — the app resolves the rest itself.
+  workbookUrl: "REPLACE_WITH_WORKBOOK_SHAREPOINT_URL",
 
-  graph: {
-    // SharePoint site id and the workbook's driveItem id — see SETUP.md
-    // for how to find these once the file is uploaded.
-    siteId: "REPLACE_WITH_SHAREPOINT_SITE_ID",
-    driveItemId: "REPLACE_WITH_WORKBOOK_ITEM_ID",
-  },
+  redirectUri: window.location.origin + window.location.pathname,
 };
+
+// Preview mode is inferred, never set by hand: if the config above still
+// holds placeholders, the app runs on sample data. That removes the
+// "filled in the config but forgot the flag" failure entirely — and its
+// opposite, a half-configured app trying to reach a workbook that isn't
+// there yet.
+export function isPlaceholder(value) {
+  return !value || value.startsWith("REPLACE_WITH_");
+}
+
+export function isPreviewMode() {
+  return (
+    isPlaceholder(CONFIG.clientId) ||
+    isPlaceholder(CONFIG.tenantId) ||
+    isPlaceholder(CONFIG.workbookUrl)
+  );
+}
+
+// Which of the three are still unfilled — used by the setup page to say
+// exactly what's outstanding rather than just "not configured".
+export function missingConfigKeys() {
+  return ["clientId", "tenantId", "workbookUrl"].filter((k) => isPlaceholder(CONFIG[k]));
+}
 
 // Fixed lists mirroring the spreadsheet's data-validation dropdowns, so the
 // web forms accept exactly what the workbook accepted. Kept here rather than
@@ -40,12 +64,3 @@ export const DISPUTE_ISSUE_TYPES = [
 export const ROR_IO_OPTIONS = ["ROR", "IO", "SIO"];
 export const RAG_OPTIONS = ["Red", "Amber", "Green"];
 export const FIELD_NOTE_LEVELS = ["School", "MAT", "Branch"];
-
-// The dashboard's "Project branches" / "Project MATs" scope. In the live
-// workbook this should live in a small ProjectScope table so it can be
-// edited without a code change; mock mode reads the equivalent from
-// mock-data.js. Kept here as the fallback/shape reference.
-export const DEFAULT_PROJECT_BRANCHES = [
-  "Bromley", "Greenwich", "Havering", "Hillingdon",
-  "Kensington and Chelsea", "Wandsworth",
-];

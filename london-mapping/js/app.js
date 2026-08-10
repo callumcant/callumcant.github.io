@@ -1,4 +1,4 @@
-import { CONFIG } from "./config.js";
+import { isPreviewMode, missingConfigKeys } from "./config.js";
 import { registerRoute, initRouter } from "./router.js";
 import * as dashboardPage from "./pages/dashboard.js";
 import * as branchesPage from "./pages/branches.js";
@@ -6,6 +6,8 @@ import * as matsPage from "./pages/mats.js";
 import * as schoolsPage from "./pages/schools.js";
 import * as disputesPage from "./pages/disputes.js";
 import * as notesPage from "./pages/notes.js";
+import * as mapPage from "./pages/map.js";
+import * as setupPage from "./pages/setup.js";
 import * as signinPage from "./pages/signin.js";
 import { getAccount } from "./auth.js";
 
@@ -14,8 +16,10 @@ const NAV_ITEMS = [
   { path: "/branches", label: "Branches" },
   { path: "/mats", label: "MATs" },
   { path: "/schools", label: "Schools" },
+  { path: "/map", label: "Map" },
   { path: "/disputes", label: "Dispute tracker" },
   { path: "/notes", label: "Field notes" },
+  { path: "/setup", label: "Setup" },
 ];
 
 function shellHtml() {
@@ -24,10 +28,10 @@ function shellHtml() {
       <nav class="sidebar">
         <div class="brand">NEU London<small>Project Mapping</small></div>
         ${NAV_ITEMS.map((item) => `<a class="nav-link" data-path="${item.path}" href="#${item.path}">${item.label}</a>`).join("")}
-        <div class="sidebar-footer">${CONFIG.USE_MOCK_DATA ? "Preview mode — sample data" : ""}</div>
+        <div class="sidebar-footer">${isPreviewMode() ? "Preview mode — sample data" : ""}</div>
       </nav>
       <main class="main">
-        ${CONFIG.USE_MOCK_DATA ? `<div class="mock-banner">You're viewing sample data, not the real workbook. Live OneDrive data appears once Entra/Graph setup is complete — see SETUP.md.</div>` : ""}
+        ${isPreviewMode() ? `<div class="mock-banner">You're viewing sample data, not the real workbook. Still to fill in: ${missingConfigKeys().join(", ")} — <a href="#/setup">open setup</a>.</div>` : ""}
         <div id="content"></div>
       </main>
     </div>
@@ -44,7 +48,7 @@ function updateActiveNav(path) {
 async function boot() {
   const app = document.getElementById("app");
 
-  if (!CONFIG.USE_MOCK_DATA) {
+  if (!isPreviewMode()) {
     const account = await getAccount();
     if (!account) {
       await signinPage.render(app);
@@ -67,6 +71,8 @@ async function boot() {
   registerRoute("/disputes/:id", disputesPage.renderForm);
   registerRoute("/notes", notesPage.renderList);
   registerRoute("/notes/new", notesPage.renderForm);
+  registerRoute("/map", mapPage.render);
+  registerRoute("/setup", setupPage.render);
 
   initRouter(content, { onNavigate: updateActiveNav });
 

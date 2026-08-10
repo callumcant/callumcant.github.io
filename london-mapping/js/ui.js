@@ -333,3 +333,72 @@ export function formatDelta(from, to, { percent = false } = {}) {
     : Math.abs(Math.round(diff)).toLocaleString("en-GB");
   return { text: `${arrow} ${body}`, direction: diff > 0 ? "up" : "down" };
 }
+
+// --- Micro-form dialog -----------------------------------------------------
+// A small native <dialog> for logging an event. Native rather than a custom
+// overlay so focus trapping, Escape-to-close and the backdrop come from the
+// browser rather than from code that has to be maintained.
+//
+// These replaced one-click buttons: a single click was close enough to a valid
+// entry that a stray one would land in the workbook. A two-field form with an
+// explicit submit is the smallest thing that makes the action deliberate.
+//
+// `fields` is [{ name, label, type, required, value, placeholder }].
+export function openMicroForm({ title, fields, submitLabel = "Save", onSubmit }) {
+  document.querySelector("dialog.micro-form")?.remove();
+
+  const dialog = document.createElement("dialog");
+  dialog.className = "micro-form";
+  dialog.innerHTML = `
+    <form method="dialog">
+      <h2>${escapeHtml(title)}</h2>
+      <div class="micro-form-fields">
+        ${fields
+          .map(
+            (f) => `
+          <div class="field">
+            <label for="mf-${escapeHtml(f.name)}">${escapeHtml(f.label)}${f.required ? " *" : ""}</label>
+            <input id="mf-${escapeHtml(f.name)}" name="${escapeHtml(f.name)}"
+              type="${escapeHtml(f.type || "text")}"
+              ${f.required ? "required" : ""}
+              ${f.value != null ? `value="${escapeHtml(f.value)}"` : ""}
+              ${f.placeholder ? `placeholder="${escapeHtml(f.placeholder)}"` : ""} />
+          </div>`
+          )
+          .join("")}
+      </div>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary" value="save">${escapeHtml(submitLabel)}</button>
+        <button type="button" class="btn" data-cancel>Cancel</button>
+      </div>
+    </form>`;
+
+  document.body.appendChild(dialog);
+  const form = dialog.querySelector("form");
+
+  dialog.querySelector("[data-cancel]").addEventListener("click", () => {
+    dialog.close("cancel");
+  });
+
+  form.addEventListener("submit", (e) => {
+    // `method="dialog"` closes the dialog on submit, but only after the
+    // browser's own validation passes — so a missing required field keeps it
+    // open with the native message, which is exactly what's wanted here.
+    if (!form.reportValidity()) {
+      e.preventDefault();
+      return;
+    }
+    const data = Object.fromEntries(new FormData(form).entries());
+    dialog.addEventListener("close", () => onSubmit(data), { once: true });
+  });
+
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.showModal();
+
+  // Focus the first field that isn't pre-filled, so the cursor lands where
+  // there's actually something to type.
+  const firstEmpty = [...dialog.querySelectorAll("input")].find((i) => !i.value);
+  (firstEmpty || dialog.querySelector("input"))?.focus();
+
+  return dialog;
+}

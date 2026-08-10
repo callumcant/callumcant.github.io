@@ -2,11 +2,22 @@ import { loadAll, addMeeting, addRepRecruited, removeEventLog } from "../data/st
 import { buildSchoolLevel } from "../data/rollups.js";
 import {
   renderDataTable, renderColumnControls, loadColumnPrefs, saveColumnPrefs,
-  downloadCsv, showToast, formatNumber, formatPercent, formatDate, escapeHtml,
+  downloadCsv, showToast, openMicroForm, formatNumber, formatPercent, formatDate,
+  escapeHtml,
 } from "../ui.js";
 import { getSignedInName } from "../auth.js";
 
 const PREFS_KEY = "london-mapping:schools:columns";
+
+// Shared by the schools/branches/MATs lists: the latest note's title, linked
+// to the filtered notes view, with the count alongside when there's more than
+// one so the extra notes aren't hidden by showing only the newest.
+export function noteLinkCell(row, level, subject) {
+  if (!row.noteCount) return `<span class="muted-cell">—</span>`;
+  const href = `#/notes?level=${level}&subject=${encodeURIComponent(subject)}`;
+  const more = row.noteCount > 1 ? ` <span class="note-count">+${row.noteCount - 1}</span>` : "";
+  return `<a class="row-link" href="${href}">${escapeHtml(row.latestNoteTitle || "(untitled note)")}</a>${more}`;
+}
 
 // Every column the original School-level tab carried (columns H–AN), plus the
 // activity the app now derives itself. The view decides what to show; nothing
@@ -72,18 +83,21 @@ function schoolColumns() {
 
     { key: "meetingsLogged", label: "Meetings logged", num: true },
     { key: "repsRecruitedLogged", label: "Reps recruited", num: true },
-    { key: "noteCount", label: "Notes", num: true,
-      render: (r) => r.noteCount
-        ? `<a class="row-link" href="#/notes?level=School&subject=${r.urn}">${r.noteCount}</a>`
-        : "0" },
-    { key: "lastNoteDate", label: "Last note", render: (r) => formatDate(r.lastNoteDate),
+    // The note's title is the useful link text; a bare count told you nothing
+    // about whether the note was worth opening.
+    { key: "latestNoteTitle", label: "Latest note", wrap: true,
+      sortValue: (r) => r.lastNoteDate,
+      render: (r) => noteLinkCell(r, "School", r.urn),
+      csv: (r) => r.latestNoteTitle || "" },
+    { key: "noteCount", label: "Note count", num: true },
+    { key: "lastNoteDate", label: "Last note date", render: (r) => formatDate(r.lastNoteDate),
       csv: (r) => r.lastNoteDate || "" },
   ];
 }
 
 const DEFAULT_KEYS = [
   "schoolName", "phase", "laName", "trust", "overallMembers", "density",
-  "repCount", "noteCount",
+  "repCount", "latestNoteTitle",
 ];
 
 const PRESETS = {
@@ -122,7 +136,7 @@ const PICKER_GROUPS = [
   { label: "Workforce", keys: ["schoolType", "hcWorkforce", "hcAllTeachers", "hcClassroomTeachers", "hcLeadershipTeachers", "hcAllSupportStaff", "hcTeachingAssistants"] },
   { label: "Membership & ballots", keys: ["overallMembers", "density", "voted", "turnout", "indicativeVoted2025", "indicativeVoted2024"] },
   { label: "Organising engagement", keys: ["repCount", "volunteers", "wpConversations", "repRecruitedVolunteer", "joinedCommunity", "completedActivateAction", "agreedToBriefing", "holdAMeeting", "needsSupport", "pledgedToVote", "activeSEVs"] },
-  { label: "Activity", keys: ["meetingsLogged", "repsRecruitedLogged", "noteCount", "lastNoteDate"] },
+  { label: "Activity", keys: ["meetingsLogged", "repsRecruitedLogged", "latestNoteTitle", "noteCount", "lastNoteDate"] },
 ];
 
 export async function renderList(container) {
@@ -338,7 +352,7 @@ export async function renderDetail(container, { urn }) {
         ? `<div class="empty-state">Nothing logged for this school yet.</div>`
         : `<dl class="stat-list">
             ${meetings.map((m) => statRow("Meeting", formatDate(m.date) + (m.loggedBy ? ` · ${escapeHtml(m.loggedBy)}` : ""))).join("")}
-            ${recruited.map((r) => statRow("Rep recruited", formatDate(r.date) + (r.loggedBy ? ` · ${escapeHtml(r.loggedBy)}` : ""))).join("")}
+            ${recruited.map((r) => statRow("Rep recruited", `${escapeHtml(r.repName || "(name not recorded)")} — ${formatDate(r.date)}` + (r.loggedBy ? ` · logged by ${escapeHtml(r.loggedBy)}` : ""))).join("")}
           </dl>`}
     </div>
 
@@ -357,33 +371,52 @@ export async function renderDetail(container, { urn }) {
     </div>
   `;
 
-  // One-click logging: today's date and this school are implied by where the
-  // button is, so there's no form. The undo in the toast is what makes that
-  // safe — an accidental click is one click to reverse.
-  async function quickLog(kind) {
-    const today = new Date().toISOString().slice(0, 10);
-    const loggedBy = await getSignedInName();
-    const payload = { date: today, urn: school.urn, loggedBy };
-    const record = kind === "meeting" ? await addMeeting(payload) : await addRepRecruited(payload);
-    showToast(
-      kind === "meeting"
-        ? `Meeting logged for ${school.schoolName}`
-        : `Rep recruited logged for ${school.schoolName}`,
-      {
-        actionLabel: "Undo",
-        onAction: async () => {
-          await removeEventLog(
-            kind === "meeting" ? "Meetings" : "RepsRecruited",
-            kind === "meeting" ? "meetings" : "repsRecruited",
-            record.id
-          );
-          renderDetail(container, { urn });
-        },
-      }
-    );
+  // Logging opens a small form rather than writing on a single click: a
+  // stray click was close enough to a valid entry to end up in the workbook.
+  // Date is pre-filled with today so the common case is still one keystroke.
+  const today = new Date().toISOString().slice(0, 10);
+
+  async function afterLog(kind, record, label) {
+    showToast(label, {
+      actionLabel: "Undo",
+      onAction: async () => {
+        await removeEventLog(
+          kind === "meeting" ? "Meetings" : "RepsRecruited",
+          kind === "meeting" ? "meetings" : "repsRecruited",
+          record.id
+        );
+        renderDetail(container, { urn });
+      },
+    });
     renderDetail(container, { urn });
   }
 
-  container.querySelector("#log-meeting").addEventListener("click", () => quickLog("meeting"));
-  container.querySelector("#log-rep").addEventListener("click", () => quickLog("rep"));
+  container.querySelector("#log-meeting").addEventListener("click", () => {
+    openMicroForm({
+      title: `Log a meeting — ${school.schoolName}`,
+      submitLabel: "Log meeting",
+      fields: [{ name: "date", label: "Date of meeting", type: "date", required: true, value: today }],
+      onSubmit: async ({ date }) => {
+        const loggedBy = await getSignedInName();
+        const record = await addMeeting({ date, urn: school.urn, loggedBy });
+        afterLog("meeting", record, `Meeting logged for ${school.schoolName}`);
+      },
+    });
+  });
+
+  container.querySelector("#log-rep").addEventListener("click", () => {
+    openMicroForm({
+      title: `Log a rep recruited — ${school.schoolName}`,
+      submitLabel: "Log rep",
+      fields: [
+        { name: "repName", label: "Rep's name", type: "text", required: true, placeholder: "e.g. Dana Whitlock" },
+        { name: "date", label: "Date recruited", type: "date", required: true, value: today },
+      ],
+      onSubmit: async ({ repName, date }) => {
+        const loggedBy = await getSignedInName();
+        const record = await addRepRecruited({ date, urn: school.urn, repName: repName.trim(), loggedBy });
+        afterLog("rep", record, `${repName.trim()} logged as a new rep at ${school.schoolName}`);
+      },
+    });
+  });
 }

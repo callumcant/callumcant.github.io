@@ -1,6 +1,9 @@
 // Talks to the live workbook on OneDrive/SharePoint via Microsoft Graph's
-// Excel API. Only exercised once CONFIG.USE_MOCK_DATA is false — see
-// SETUP.md for the app-registration and config.js values this needs.
+// Excel API. Only exercised once config.js holds real values — see SETUP.md.
+//
+// The workbook is located from its ordinary SharePoint URL rather than from
+// site/item GUIDs, so going live needs no Graph Explorer archaeology: copy the
+// address bar, paste it into config.js, done.
 //
 // Row addressing caveat: Excel Tables via Graph have no stable row ID —
 // rows/itemAt(index=N) addresses by position. updateRow/deleteRow below find
@@ -10,7 +13,7 @@
 // team; worth revisiting if usage grows.
 import { CONFIG } from "../config.js";
 import { getAccessToken } from "../auth.js";
-import { rowToObject, objectToRow } from "./table-schemas.js";
+import { rowToObject, objectToRow, TABLE_SCHEMAS } from "./table-schemas.js";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
@@ -19,8 +22,37 @@ const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 // request.
 const WRITE_BATCH_SIZE = 200;
 
-function workbookPath(suffix) {
-  return `/sites/${CONFIG.graph.siteId}/drive/items/${CONFIG.graph.driveItemId}/workbook${suffix}`;
+// Graph's /shares endpoint takes a sharing URL encoded as an unpadded,
+// URL-safe base64 string prefixed with "u!". That turns any SharePoint link
+// into a driveItem, which is what lets config.js hold a URL instead of GUIDs.
+function encodeShareUrl(url) {
+  const b64 = btoa(unescape(encodeURIComponent(url)));
+  return "u!" + b64.replace(/=+$/, "").replace(/\//g, "_").replace(/\+/g, "-");
+}
+
+let workbookRefPromise = null;
+
+// Resolved once per page load and reused: every table read would otherwise
+// repeat the lookup.
+export function resolveWorkbook() {
+  if (!workbookRefPromise) {
+    workbookRefPromise = (async () => {
+      const item = await graphFetch(`/shares/${encodeShareUrl(CONFIG.workbookUrl)}/driveItem`);
+      if (!item?.id || !item?.parentReference?.driveId) {
+        throw new Error("Resolved the workbook URL but Graph returned no drive item id.");
+      }
+      return { driveId: item.parentReference.driveId, itemId: item.id, name: item.name };
+    })().catch((err) => {
+      workbookRefPromise = null; // let a later attempt retry rather than caching the failure
+      throw err;
+    });
+  }
+  return workbookRefPromise;
+}
+
+async function workbookPath(suffix) {
+  const { driveId, itemId } = await resolveWorkbook();
+  return `/drives/${driveId}/items/${itemId}/workbook${suffix}`;
 }
 
 async function graphFetch(path, options = {}) {
@@ -46,7 +78,7 @@ async function graphFetch(path, options = {}) {
 // single response holds everything.
 async function getTableRows(tableName) {
   const rows = [];
-  let path = workbookPath(`/tables('${tableName}')/rows`);
+  let path = await workbookPath(`/tables('${tableName}')/rows`);
   while (path) {
     const data = await graphFetch(path);
     for (const row of data.value) rows.push(rowToObject(tableName, row.values[0]));
@@ -69,6 +101,7 @@ const TABLE_TO_STATE_KEY = {
   Meetings: "meetings",
   RepsRecruited: "repsRecruited",
   Snapshots: "snapshots",
+  SchoolGeo: "schoolGeo",
 };
 
 export async function loadAllTables() {
@@ -88,7 +121,7 @@ export async function addRow(tableName, obj) {
 export async function addRows(tableName, objects) {
   for (let i = 0; i < objects.length; i += WRITE_BATCH_SIZE) {
     const batch = objects.slice(i, i + WRITE_BATCH_SIZE);
-    await graphFetch(workbookPath(`/tables('${tableName}')/rows`), {
+    await graphFetch(await workbookPath(`/tables('${tableName}')/rows`), {
       method: "POST",
       body: JSON.stringify({ values: batch.map((o) => objectToRow(tableName, o)) }),
     });
@@ -104,7 +137,7 @@ async function findRowIndex(tableName, id) {
 
 export async function updateRow(tableName, id, fullRecord) {
   const idx = await findRowIndex(tableName, id);
-  await graphFetch(workbookPath(`/tables('${tableName}')/rows/itemAt(index=${idx})`), {
+  await graphFetch(await workbookPath(`/tables('${tableName}')/rows/itemAt(index=${idx})`), {
     method: "PATCH",
     body: JSON.stringify({ values: [objectToRow(tableName, fullRecord)] }),
   });
@@ -112,7 +145,60 @@ export async function updateRow(tableName, id, fullRecord) {
 
 export async function deleteRow(tableName, id) {
   const idx = await findRowIndex(tableName, id);
-  await graphFetch(workbookPath(`/tables('${tableName}')/rows/itemAt(index=${idx})`), {
+  await graphFetch(await workbookPath(`/tables('${tableName}')/rows/itemAt(index=${idx})`), {
     method: "DELETE",
   });
+}
+
+// Health check for the setup page. Compares the workbook's actual tables and
+// column counts against TABLE_SCHEMAS and reports per-table, so "it doesn't
+// work" becomes "SourceGIAS has 7 columns, expected 17".
+//
+// SchoolGeo is optional: it stays empty until the map view is used, and its
+// absence shouldn't be reported as a fault on an otherwise-healthy workbook.
+const OPTIONAL_TABLES = new Set(["SchoolGeo"]);
+
+export async function checkWorkbookHealth() {
+  const { name } = await resolveWorkbook();
+  const listPath = await workbookPath("/tables");
+  const data = await graphFetch(listPath);
+  const present = new Map(data.value.map((t) => [t.name, t]));
+
+  const results = [];
+  for (const [tableName, fields] of Object.entries(TABLE_SCHEMAS)) {
+    const table = present.get(tableName);
+    if (!table) {
+      results.push({
+        table: tableName,
+        ok: OPTIONAL_TABLES.has(tableName),
+        optional: OPTIONAL_TABLES.has(tableName),
+        detail: OPTIONAL_TABLES.has(tableName)
+          ? "Not present — optional, only needed for the map view."
+          : `Missing. Add a table named exactly "${tableName}" with ${fields.length} columns.`,
+      });
+      continue;
+    }
+    let columns = [];
+    try {
+      const colData = await graphFetch(
+        await workbookPath(`/tables('${tableName}')/columns?$select=name`)
+      );
+      columns = colData.value.map((c) => c.name);
+    } catch {
+      results.push({ table: tableName, ok: false, detail: "Could not read this table's columns." });
+      continue;
+    }
+    const ok = columns.length === fields.length;
+    results.push({
+      table: tableName,
+      ok,
+      detail: ok
+        ? `${columns.length} columns, as expected.`
+        : `Has ${columns.length} columns, expected ${fields.length}. Column order must match the template.`,
+      columns,
+    });
+  }
+
+  const extras = [...present.keys()].filter((n) => !TABLE_SCHEMAS[n]);
+  return { workbookName: name, results, extras };
 }

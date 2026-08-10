@@ -136,8 +136,8 @@ TABLES = [
     },
     {
         "sheet": "RepsRecruited",
-        "headers": ["ID", "Date", "URN", "Logged by"],
-        "rows": [["r1", "2026-01-22", 100097, "EXAMPLE Organiser"]],
+        "headers": ["ID", "Date", "URN", "Rep name", "Logged by"],
+        "rows": [["r1", "2026-01-22", 100097, "EXAMPLE Rep", "EXAMPLE Organiser"]],
         "note": "Append-only log of reps recruited, written one-click by the app. Distinct from reps TRAINED, which is still a manual figure on BranchFacts.",
     },
     {

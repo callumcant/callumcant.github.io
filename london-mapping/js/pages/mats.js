@@ -1,6 +1,7 @@
 import { loadAll } from "../data/store.js";
 import { buildSchoolLevel, buildMatLevel } from "../data/rollups.js";
 import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml } from "../ui.js";
+import { noteLinkCell } from "./schools.js";
 
 export async function renderList(container) {
   const state = await loadAll();
@@ -23,10 +24,9 @@ export async function renderList(container) {
       { key: "repCoveragePercent", label: "Rep coverage", num: true, render: (r) => formatPercent(r.repCoveragePercent) },
       { key: "noRepSchools", label: "No-rep schools", num: true },
       { key: "repCommitteeExists", label: "Rep committee", render: (r) => (r.repCommitteeExists ? "Yes" : "No") },
-      { key: "noteCount", label: "Notes", num: true,
-        render: (r) => r.noteCount
-          ? `<a class="row-link" href="#/notes?level=MAT&subject=${encodeURIComponent(r.name)}">${r.noteCount}</a>`
-          : "0" },
+      { key: "latestNoteTitle", label: "Latest note", wrap: true,
+        sortValue: (r) => r.lastNoteDate,
+        render: (r) => noteLinkCell(r, "MAT", r.name) },
     ],
     mats,
     { defaultSort: "totalMembers", defaultDir: "desc" }

@@ -1,8 +1,8 @@
 // Single point of contact between pages and data. Pages never import
 // mock-data.js or graph-client.js directly — they call this module, which
-// picks a source based on CONFIG.USE_MOCK_DATA. That's what lets the same
+// picks a source based on whether config.js is filled in. That's what lets the same
 // rollup logic run against fake data today and the real workbook later.
-import { CONFIG } from "../config.js";
+import { isPreviewMode } from "../config.js";
 import * as mock from "./mock-data.js";
 
 let graphClient = null;
@@ -29,13 +29,14 @@ const state = {
   meetings: [],
   repsRecruited: [],
   snapshots: [],
+  schoolGeo: [],
   asOfDate: null,
 };
 
 export async function loadAll() {
   if (state.loaded) return state;
 
-  if (CONFIG.USE_MOCK_DATA) {
+  if (isPreviewMode()) {
     state.sourceGIAS = mock.sourceGIAS;
     state.sourceWorkforce = mock.sourceWorkforce;
     state.wcToUrn = mock.wcToUrn;
@@ -47,6 +48,7 @@ export async function loadAll() {
     state.meetings = [...mock.meetings];
     state.repsRecruited = [...mock.repsRecruited];
     state.snapshots = [...mock.snapshots];
+    state.schoolGeo = [...mock.schoolGeo];
     state.asOfDate = new Date();
   } else {
     const graph = await getGraphClient();
@@ -64,7 +66,7 @@ export function getState() {
 }
 
 async function appendRow(tableName, stateKey, record) {
-  if (!CONFIG.USE_MOCK_DATA) {
+  if (!isPreviewMode()) {
     const graph = await getGraphClient();
     await graph.addRow(tableName, record);
   }
@@ -84,7 +86,7 @@ export async function updateDispute(id, patch) {
   const idx = state.disputeTracker.findIndex((d) => d.id === id);
   if (idx === -1) throw new Error(`Dispute ${id} not found`);
   const updated = { ...state.disputeTracker[idx], ...patch };
-  if (!CONFIG.USE_MOCK_DATA) {
+  if (!isPreviewMode()) {
     const graph = await getGraphClient();
     await graph.updateRow("DisputeTracker", id, updated);
   }
@@ -96,8 +98,10 @@ export async function addMeeting({ date, urn, loggedBy }) {
   return appendRow("Meetings", "meetings", { id: `m${Date.now()}`, date, urn, loggedBy });
 }
 
-export async function addRepRecruited({ date, urn, loggedBy }) {
-  return appendRow("RepsRecruited", "repsRecruited", { id: `r${Date.now()}`, date, urn, loggedBy });
+export async function addRepRecruited({ date, urn, repName, loggedBy }) {
+  return appendRow("RepsRecruited", "repsRecruited", {
+    id: `r${Date.now()}`, date, urn, repName, loggedBy,
+  });
 }
 
 // Undo support for the one-click event logs: the entry was created without a
@@ -105,15 +109,24 @@ export async function addRepRecruited({ date, urn, loggedBy }) {
 export async function removeEventLog(tableName, stateKey, id) {
   const idx = state[stateKey].findIndex((r) => r.id === id);
   if (idx === -1) return;
-  if (!CONFIG.USE_MOCK_DATA) {
+  if (!isPreviewMode()) {
     const graph = await getGraphClient();
     await graph.deleteRow(tableName, id);
   }
   state[stateKey].splice(idx, 1);
 }
 
+export async function appendSchoolGeoRows(rows) {
+  if (!isPreviewMode()) {
+    const graph = await getGraphClient();
+    await graph.addRows("SchoolGeo", rows);
+  }
+  state.schoolGeo.push(...rows);
+  return rows;
+}
+
 export async function appendSnapshotRows(rows) {
-  if (!CONFIG.USE_MOCK_DATA) {
+  if (!isPreviewMode()) {
     const graph = await getGraphClient();
     await graph.addRows("Snapshots", rows);
   }

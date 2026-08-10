@@ -64,7 +64,7 @@ export const TABLE_SCHEMAS = {
   // Append-only event logs. Deliberately minimal — date + school is the whole
   // entry, with loggedBy filled from the signed-in account.
   Meetings: ["id", "date", "urn", "loggedBy"],
-  RepsRecruited: ["id", "date", "urn", "loggedBy"],
+  RepsRecruited: ["id", "date", "urn", "repName", "loggedBy"],
 
   // Geocoded postcodes, cached so the lookup runs once. Unused until the map
   // view is built; defined now so the workbook needn't be re-issued for it.

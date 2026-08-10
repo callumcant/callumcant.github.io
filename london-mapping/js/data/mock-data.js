@@ -126,9 +126,9 @@ export const meetings = [
 ];
 
 export const repsRecruited = [
-  {"id": "r1", "date": "2026-06-20", "urn": 200001, "loggedBy": "Jide K."},
-  {"id": "r2", "date": "2026-07-11", "urn": 200006, "loggedBy": "Jide K."},
-  {"id": "r3", "date": "2026-08-02", "urn": 200012, "loggedBy": "Jide K."},
+  {"id": "r1", "date": "2026-06-20", "urn": 200001, "repName": "Dana Whitlock", "loggedBy": "Jide K."},
+  {"id": "r2", "date": "2026-07-11", "urn": 200006, "repName": "Femi Adebayo", "loggedBy": "Jide K."},
+  {"id": "r3", "date": "2026-08-02", "urn": 200012, "repName": "Sarah Lindqvist", "loggedBy": "Jide K."},
 ];
 
 // Eight weekly captures trending up to the current figures, so trend views
@@ -247,4 +247,23 @@ export const snapshots = [
   {"snapshotDate": "2026-08-07", "urn": 200012, "overallMembers": 41, "repCount": 2, "hcWorkforce": 109, "voted": 32, "volunteers": 4, "wpConversations": 10},
   {"snapshotDate": "2026-08-07", "urn": 200013, "overallMembers": 12, "repCount": 1, "hcWorkforce": 41, "voted": 7, "volunteers": 1, "wpConversations": 3},
   {"snapshotDate": "2026-08-07", "urn": 200014, "overallMembers": 33, "repCount": 1, "hcWorkforce": 126, "voted": 20, "volunteers": 3, "wpConversations": 6},
+];
+
+// Cached postcode coordinates for the map. Real London locations for the
+// invented schools, so the preview map looks like the real thing.
+export const schoolGeo = [
+  {"urn": 200001, "lat": 51.4059, "lon": 0.0148, "geocodedDate": "2026-08-01"},
+  {"urn": 200002, "lat": 51.3845, "lon": 0.0562, "geocodedDate": "2026-08-01"},
+  {"urn": 200003, "lat": 51.4085, "lon": -0.0255, "geocodedDate": "2026-08-01"},
+  {"urn": 200004, "lat": 51.4159, "lon": 0.0248, "geocodedDate": "2026-08-01"},
+  {"urn": 200005, "lat": 51.4835, "lon": 0.0698, "geocodedDate": "2026-08-01"},
+  {"urn": 200006, "lat": 51.4869, "lon": 0.0413, "geocodedDate": "2026-08-01"},
+  {"urn": 200007, "lat": 51.4652, "lon": 0.0195, "geocodedDate": "2026-08-01"},
+  {"urn": 200008, "lat": 51.5432, "lon": -0.4784, "geocodedDate": "2026-08-01"},
+  {"urn": 200009, "lat": 51.5215, "lon": -0.4012, "geocodedDate": "2026-08-01"},
+  {"urn": 200010, "lat": 51.5620, "lon": -0.4472, "geocodedDate": "2026-08-01"},
+  {"urn": 200011, "lat": 51.4640, "lon": -0.1660, "geocodedDate": "2026-08-01"},
+  {"urn": 200012, "lat": 51.4288, "lon": -0.1594, "geocodedDate": "2026-08-01"},
+  {"urn": 200013, "lat": 51.5423, "lon": -0.1310, "geocodedDate": "2026-08-01"},
+  {"urn": 200014, "lat": 51.5265, "lon": -0.1490, "geocodedDate": "2026-08-01"},
 ];

@@ -1,15 +1,20 @@
 // Thin wrapper around MSAL Browser (loaded from esm.sh so there's no npm
-// install / build step — this is a static site). Only used once
-// CONFIG.USE_MOCK_DATA is false and SETUP.md's app-registration step is done.
-import { CONFIG } from "./config.js";
+// install / build step — this is a static site). Only used once the three
+// values in config.js are filled in; see SETUP.md.
+import { CONFIG, isPreviewMode } from "./config.js";
 
-const GRAPH_SCOPES = ["Files.ReadWrite", "Sites.ReadWrite.All", "User.Read"];
+// Deliberately the smallest set that works, to keep the admin-consent ask
+// small: Files.ReadWrite.All covers a workbook in a SharePoint library the
+// signed-in user can already open. If Graph returns 403 against the /shares
+// endpoint in your tenant, SETUP.md documents Sites.ReadWrite.All as the
+// fallback — add it there rather than widening this by default.
+export const GRAPH_SCOPES = ["Files.ReadWrite.All", "User.Read"];
 
 // Used to stamp event-log entries with who logged them, without asking anyone
 // to type their name. In preview mode there's no signed-in account, so entries
 // are marked as sample data rather than attributed to a real person.
 export async function getSignedInName() {
-  if (CONFIG.USE_MOCK_DATA) return "Preview user";
+  if (isPreviewMode()) return "Preview user";
   const account = await getAccount();
   return account?.name || account?.username || "Unknown user";
 }
@@ -28,9 +33,9 @@ async function getClient() {
   const { PublicClientApplication } = await loadMsal();
   pca = new PublicClientApplication({
     auth: {
-      clientId: CONFIG.msal.clientId,
-      authority: `https://login.microsoftonline.com/${CONFIG.msal.tenantId}`,
-      redirectUri: CONFIG.msal.redirectUri,
+      clientId: CONFIG.clientId,
+      authority: `https://login.microsoftonline.com/${CONFIG.tenantId}`,
+      redirectUri: CONFIG.redirectUri,
     },
     cache: { cacheLocation: "sessionStorage" },
   });
