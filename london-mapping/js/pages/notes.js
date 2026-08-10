@@ -19,22 +19,39 @@ function subjectLink(note, schoolsByUrn) {
   return "#";
 }
 
-export async function renderList(container) {
+export async function renderList(container, params = {}) {
   const state = await loadAll();
   const schools = buildSchoolLevel(state);
   const schoolsByUrn = new Map(schools.map((s) => [String(s.urn), s]));
   const notes = [...state.fieldNotes].sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  // Arriving from a "Notes" count elsewhere in the app: pre-filter to that
+  // subject, and say so with a clearable chip so it isn't mistaken for the
+  // full list. This is the equivalent of the workbook's HYPERLINK jump.
+  const query = params.query || {};
+  const pinnedLevel = FIELD_NOTE_LEVELS.includes(query.level) ? query.level : "";
+  const pinnedSubject = pinnedLevel && query.subject ? String(query.subject) : "";
+  const pinnedLabel = pinnedSubject
+    ? subjectLabel({ level: pinnedLevel, subject: pinnedSubject }, schoolsByUrn)
+    : "";
 
   container.innerHTML = `
     <div class="topbar">
       <h1>Field notes</h1>
       <a class="btn btn-primary" href="#/notes/new">+ Add note</a>
     </div>
+    ${pinnedSubject ? `
+    <div class="filter-chip-row">
+      <span class="filter-chip">
+        Showing notes for <strong>${escapeHtml(pinnedLabel)}</strong>
+        <a href="#/notes" aria-label="Clear filter">✕</a>
+      </span>
+    </div>` : ""}
     <div class="filter-bar">
       <input type="search" id="note-search" placeholder="Search notes" />
       <select id="note-level-filter">
         <option value="">All levels</option>
-        ${FIELD_NOTE_LEVELS.map((l) => `<option value="${l}">${l}</option>`).join("")}
+        ${FIELD_NOTE_LEVELS.map((l) => `<option value="${l}" ${l === pinnedLevel ? "selected" : ""}>${l}</option>`).join("")}
       </select>
     </div>
     <div class="card"><div id="notes-table"></div></div>
@@ -56,6 +73,7 @@ export async function renderList(container) {
   function applyFilters() {
     const q = searchEl.value.trim().toLowerCase();
     const filtered = notes.filter((n) => {
+      if (pinnedSubject && String(n.subject) !== pinnedSubject) return false;
       if (levelEl.value && n.level !== levelEl.value) return false;
       if (q && !`${n.title} ${n.note} ${subjectLabel(n, schoolsByUrn)}`.toLowerCase().includes(q)) return false;
       return true;

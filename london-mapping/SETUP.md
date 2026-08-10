@@ -110,7 +110,21 @@ whatever's currently in those tables, so there's nothing to redeploy when
 that data changes.
 
 `BranchFacts` and `MatFacts` hold the "project scope" flags (which
-branches/MATs count toward the dashboard's headline KPIs) plus a few
-manually-tracked figures (school meetings held, reps trained, whether a MAT
-rep committee exists) — edit those rows directly in Excel when the project's
-scope changes.
+branches/MATs count toward the dashboard's headline KPIs) plus the
+manually-tracked reps-trained figure and whether a MAT rep committee exists —
+edit those rows directly in Excel when the project's scope changes.
+
+`Meetings` and `RepsRecruited` are append-only event logs written by the app
+(one click from a school's page). School-meeting counts on the branch and
+dashboard views are derived from `Meetings`, so don't keep a separate tally
+anywhere — that's what the old counter column did, and it couldn't show a
+trend.
+
+`Snapshots` is an append-only weekly capture of the figures that move, written
+automatically. **Never edit or delete rows in it.** It is the only record of
+how things looked at the time and cannot be reconstructed afterwards. See
+`docs/scheduled-snapshot.md` for making capture run even in weeks when nobody
+opens the site.
+
+`SchoolGeo` caches postcode coordinates for the map view (not built yet) and
+stays empty until then.

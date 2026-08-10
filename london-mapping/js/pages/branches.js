@@ -25,7 +25,12 @@ export async function renderList(container) {
       { key: "reps", label: "Reps", num: true },
       { key: "memberRepRatio", label: "Member:rep" },
       { key: "noRepSchools", label: "No-rep schools", num: true },
-      { key: "noteCount", label: "Notes", num: true },
+      { key: "schoolMeetingsHeld", label: "Meetings", num: true },
+      { key: "repsRecruited", label: "Reps recruited", num: true },
+      { key: "noteCount", label: "Notes", num: true,
+        render: (r) => r.noteCount
+          ? `<a class="row-link" href="#/notes?level=Branch&subject=${encodeURIComponent(r.name)}">${r.noteCount}</a>`
+          : "0" },
     ],
     branches,
     { defaultSort: "members", defaultDir: "desc" }
@@ -63,6 +68,7 @@ export async function renderDetail(container, { name }) {
       <div class="tile"><div class="tile-label">No-rep schools</div><div class="tile-value">${branch.noRepSchools}</div></div>
       <div class="tile"><div class="tile-label">Members in no-rep schools</div><div class="tile-value">${formatNumber(branch.membersInNoRepSchools)}</div></div>
       <div class="tile"><div class="tile-label">School meetings held</div><div class="tile-value">${branch.schoolMeetingsHeld}</div></div>
+      <div class="tile"><div class="tile-label">Reps recruited</div><div class="tile-value">${branch.repsRecruited}</div></div>
       <div class="tile"><div class="tile-label">Reps trained</div><div class="tile-value">${branch.repsTrainedSinceStart}</div></div>
     </div>
 
@@ -84,7 +90,10 @@ export async function renderDetail(container, { name }) {
           <div>${escapeHtml(n.note)}</div>
           <div class="note-meta">${formatDate(n.date)} · ${escapeHtml(n.author)}</div>
         </div>`).join("")}
-      <div class="btn-row"><a class="btn" href="#/notes/new?level=Branch&subject=${encodeURIComponent(name)}">+ Add note</a></div>
+      <div class="btn-row">
+        <a class="btn" href="#/notes/new?level=Branch&subject=${encodeURIComponent(name)}">+ Add note</a>
+        ${notes.length ? `<a class="btn" href="#/notes?level=Branch&subject=${encodeURIComponent(name)}">View in notes</a>` : ""}
+      </div>
     </div>
   `;
 

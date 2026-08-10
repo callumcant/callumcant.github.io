@@ -69,6 +69,23 @@ async function boot() {
   registerRoute("/notes/new", notesPage.renderForm);
 
   initRouter(content, { onNavigate: updateActiveNav });
+
+  // Weekly snapshot capture, after first paint so it never delays rendering.
+  // Failures are logged inside maybeCaptureSnapshot and deliberately not
+  // surfaced — bookkeeping must not interrupt someone mid-task.
+  requestIdleCallbackShim(() => {
+    import("./data/snapshots.js").then((m) => m.maybeCaptureSnapshot());
+  });
+}
+
+// requestIdleCallback isn't available in Safari; fall back to a timeout so the
+// capture still happens off the critical path.
+function requestIdleCallbackShim(fn) {
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(fn, { timeout: 5000 });
+  } else {
+    setTimeout(fn, 1200);
+  }
 }
 
 boot();

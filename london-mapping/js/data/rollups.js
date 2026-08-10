@@ -5,6 +5,10 @@
 // don't run reliably once the workbook lives on OneDrive — this reimplements
 // the same *intent*, column by column, against the raw source tables.
 //
+// buildSchoolLevel passes through every field from the source tables rather
+// than a chosen subset: the site has to be a superset of the spreadsheet, and
+// the view layer decides what to show, not this layer.
+//
 // Ballot "success" isn't in the source data as a flag — the workbook only
 // stores the raw %. This treats >=50% Yes as successful, matching common
 // NEU ballot reporting; adjust SUCCESS_THRESHOLD if your branches define it
@@ -20,6 +24,10 @@ function safeDiv(numerator, denominator) {
   return numerator / denominator;
 }
 
+function latestBy(rows, key = "date") {
+  return rows.reduce((latest, r) => (!latest || r[key] > latest[key] ? r : latest), null);
+}
+
 export function buildSchoolLevel(state) {
   const workforceByUrn = new Map(state.sourceWorkforce.map((w) => [w.urn, w]));
   const urnByWorkplaceCode = new Map(state.wcToUrn.map((r) => [r.workplaceCode, r.urn]));
@@ -29,44 +37,86 @@ export function buildSchoolLevel(state) {
     if (urn != null) neuByUrn.set(urn, row);
   }
 
+  const meetingsByUrn = new Map();
+  for (const m of state.meetings) {
+    meetingsByUrn.set(m.urn, (meetingsByUrn.get(m.urn) || 0) + 1);
+  }
+  const recruitedByUrn = new Map();
+  for (const r of state.repsRecruited) {
+    recruitedByUrn.set(r.urn, (recruitedByUrn.get(r.urn) || 0) + 1);
+  }
+
   return state.sourceGIAS.map((school) => {
     const wf = workforceByUrn.get(school.urn) || {};
     const neu = neuByUrn.get(school.urn) || {};
     const notes = state.fieldNotes.filter(
       (n) => n.level === "School" && String(n.subject) === String(school.urn)
     );
-    const lastNote = notes.reduce(
-      (latest, n) => (!latest || n.date > latest.date ? n : latest),
-      null
-    );
+    const lastNote = latestBy(notes);
 
     const overallMembers = neu.overallMembers ?? 0;
     const hcWorkforce = wf.hcWorkforce ?? 0;
-    const repCount = neu.repCount ?? 0;
 
     return {
+      // --- GIAS ---
       urn: school.urn,
       schoolName: school.schoolName,
-      laName: school.laName,
-      phase: school.phase,
-      establishmentStatus: school.establishmentStatus,
+      typeOfEstablishment: school.typeOfEstablishment ?? "",
+      phase: school.phase ?? "",
+      laName: school.laName ?? "",
+      establishmentStatus: school.establishmentStatus ?? "",
+      religiousCharacter: school.religiousCharacter ?? "",
+      diocese: school.diocese ?? "",
       trust: school.trusts || "",
-      postcode: school.postcode,
+      schoolSponsors: school.schoolSponsors ?? "",
+      federations: school.federations ?? "",
+      postcode: school.postcode ?? "",
+      schoolWebsite: school.schoolWebsite ?? "",
+      telephoneNum: school.telephoneNum ?? "",
+      headName: [school.headTitle, school.headFirstName, school.headLastName]
+        .filter(Boolean).join(" "),
+
+      // --- Workforce census ---
+      schoolType: wf.schoolType ?? "",
       hcWorkforce,
       hcAllTeachers: wf.hcAllTeachers ?? 0,
+      hcClassroomTeachers: wf.hcClassroomTeachers ?? 0,
+      hcLeadershipTeachers: wf.hcLeadershipTeachers ?? 0,
       hcAllSupportStaff: wf.hcAllSupportStaff ?? 0,
+      hcTeachingAssistants: wf.hcTeachingAssistants ?? 0,
+
+      // --- NEU membership & ballots ---
+      workplaceName: neu.workplaceName ?? "",
+      branchName: neu.branchName ?? "",
+      districtName: neu.districtName ?? "",
+      regionName: neu.regionName ?? "",
       overallMembers,
       voted: neu.voted ?? 0,
+      // Derived here; `turnoutReported` is the figure as exported, kept so the
+      // two can be compared if they ever disagree.
       turnout: safeDiv(neu.voted, overallMembers),
+      turnoutReported: neu.turnout ?? null,
       density: safeDiv(overallMembers, hcWorkforce),
-      repCount,
-      volunteers: neu.volunteers ?? 0,
-      wpConversations: neu.wpConversations ?? 0,
       indicativeVoted2025: neu.indicativeVoted2025 ?? null,
       indicativeVoted2024: neu.indicativeVoted2024 ?? null,
+
+      // --- Organising engagement ---
+      repCount: neu.repCount ?? 0,
+      volunteers: neu.volunteers ?? 0,
+      wpConversations: neu.wpConversations ?? 0,
+      repRecruitedVolunteer: neu.repRecruitedVolunteer ?? 0,
+      joinedCommunity: neu.joinedCommunity ?? 0,
+      completedActivateAction: neu.completedActivateAction ?? 0,
+      agreedToBriefing: neu.agreedToBriefing ?? 0,
       holdAMeeting: neu.holdAMeeting ?? 0,
       needsSupport: neu.needsSupport ?? 0,
       pledgedToVote: neu.pledgedToVote ?? 0,
+      activeSEVs: neu.activeSEVs ?? 0,
+      importDate: neu.importDate ?? null,
+
+      // --- Derived from app activity ---
+      meetingsLogged: meetingsByUrn.get(school.urn) || 0,
+      repsRecruitedLogged: recruitedByUrn.get(school.urn) || 0,
       noteCount: notes.length,
       lastNoteDate: lastNote?.date ?? null,
     };
@@ -90,8 +140,9 @@ export function buildMatLevel(schools, state) {
     const boroughsPresent = [...new Set(matSchools.map((s) => s.laName))].sort();
     const phasesPresent = [...new Set(matSchools.map((s) => s.phase))].sort();
     const notes = state.fieldNotes.filter((n) => n.level === "MAT" && n.subject === trust);
-    const lastNote = notes.reduce((latest, n) => (!latest || n.date > latest.date ? n : latest), null);
-    const facts = state.matFacts.find((f) => f.mat === trust) || { isTargetMat: false, repCommitteeExists: false };
+    const lastNote = latestBy(notes);
+    const facts = state.matFacts.find((f) => f.mat === trust)
+      || { isTargetMat: false, repCommitteeExists: false };
 
     return {
       name: trust,
@@ -108,6 +159,8 @@ export function buildMatLevel(schools, state) {
       repCoveragePercent: safeDiv(schoolCount - noRepSchools, schoolCount),
       membersInNoRepSchools: sum(matSchools.filter((s) => s.repCount === 0), (s) => s.overallMembers),
       repCommitteeExists: !!facts.repCommitteeExists,
+      meetingsHeld: sum(matSchools, (s) => s.meetingsLogged),
+      repsRecruited: sum(matSchools, (s) => s.repsRecruitedLogged),
       noteCount: notes.length,
       lastNoteDate: lastNote?.date ?? null,
       schools: matSchools,
@@ -132,10 +185,9 @@ export function buildBranchLevel(schools, state) {
       null
     );
     const notes = state.fieldNotes.filter((n) => n.level === "Branch" && n.subject === branch);
-    const lastNote = notes.reduce((latest, n) => (!latest || n.date > latest.date ? n : latest), null);
-    const facts = state.branchFacts.find((f) => f.branch === branch) || {
-      isProjectBranch: false, schoolMeetingsHeld: 0, repsTrainedSinceStart: 0,
-    };
+    const lastNote = latestBy(notes);
+    const facts = state.branchFacts.find((f) => f.branch === branch)
+      || { isProjectBranch: false, repsTrainedSinceStart: 0 };
 
     return {
       name: branch,
@@ -151,9 +203,16 @@ export function buildBranchLevel(schools, state) {
       noRepSchools: noRepSchoolsList.length,
       membersInNoRepSchools: sum(noRepSchoolsList, (s) => s.overallMembers),
       workforceInNoRepSchools: sum(noRepSchoolsList, (s) => s.hcWorkforce),
-      biggestNoRepSchool: biggestNoRep ? { name: biggestNoRep.schoolName, members: biggestNoRep.overallMembers } : null,
-      schoolMeetingsHeld: facts.schoolMeetingsHeld,
-      repsTrainedSinceStart: facts.repsTrainedSinceStart,
+      biggestNoRepSchool: biggestNoRep
+        ? { name: biggestNoRep.schoolName, members: biggestNoRep.overallMembers }
+        : null,
+      // Derived from the Meetings event log rather than a hand-kept counter,
+      // so it carries a trend and can be drilled into.
+      schoolMeetingsHeld: sum(branchSchools, (s) => s.meetingsLogged),
+      repsRecruited: sum(branchSchools, (s) => s.repsRecruitedLogged),
+      // Still a manual counter: rep *training* data is a later pipeline and is
+      // not the same thing as recruitment.
+      repsTrainedSinceStart: facts.repsTrainedSinceStart ?? 0,
       noteCount: notes.length,
       lastNoteDate: lastNote?.date ?? null,
       schools: branchSchools,
@@ -200,6 +259,7 @@ export function buildProjectDashboard(branches, mats, disputes) {
       noRepSchools: sum(projectBranches, (b) => b.noRepSchools),
       memberRepRatio: branchReps === 0 ? "No reps" : `1:${Math.round(branchMembers / branchReps)}`,
       schoolMeetingsHeld: sum(projectBranches, (b) => b.schoolMeetingsHeld),
+      repsRecruited: sum(projectBranches, (b) => b.repsRecruited),
       repsTrainedSinceStart: sum(projectBranches, (b) => b.repsTrainedSinceStart),
       ...disputeKpis(branchDisputes),
     },
@@ -211,6 +271,8 @@ export function buildProjectDashboard(branches, mats, disputes) {
       memberRepRatio: matReps === 0 ? "No reps" : `1:${Math.round(matMembers / matReps)}`,
       membersInNoRepSchools: sum(projectMats, (m) => m.membersInNoRepSchools),
       repCommittees: projectMats.filter((m) => m.repCommitteeExists).length,
+      meetingsHeld: sum(projectMats, (m) => m.meetingsHeld),
+      repsRecruited: sum(projectMats, (m) => m.repsRecruited),
       ...disputeKpis(matDisputes),
     },
     branchList: projectBranches,

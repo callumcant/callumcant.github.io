@@ -26,6 +26,9 @@ const state = {
   disputeTracker: [],
   branchFacts: [],
   matFacts: [],
+  meetings: [],
+  repsRecruited: [],
+  snapshots: [],
   asOfDate: null,
 };
 
@@ -41,6 +44,9 @@ export async function loadAll() {
     state.disputeTracker = [...mock.disputeTracker];
     state.branchFacts = mock.branchFacts;
     state.matFacts = mock.matFacts;
+    state.meetings = [...mock.meetings];
+    state.repsRecruited = [...mock.repsRecruited];
+    state.snapshots = [...mock.snapshots];
     state.asOfDate = new Date();
   } else {
     const graph = await getGraphClient();
@@ -57,40 +63,60 @@ export function getState() {
   return state;
 }
 
-export async function addFieldNote(note) {
-  const record = { id: `n${Date.now()}`, ...note };
-  if (CONFIG.USE_MOCK_DATA) {
-    state.fieldNotes.push(record);
-  } else {
+async function appendRow(tableName, stateKey, record) {
+  if (!CONFIG.USE_MOCK_DATA) {
     const graph = await getGraphClient();
-    await graph.addRow("FieldNotes", record);
-    state.fieldNotes.push(record);
+    await graph.addRow(tableName, record);
   }
+  state[stateKey].push(record);
   return record;
 }
 
+export async function addFieldNote(note) {
+  return appendRow("FieldNotes", "fieldNotes", { id: `n${Date.now()}`, ...note });
+}
+
 export async function addDispute(dispute) {
-  const record = { id: `d${Date.now()}`, ...dispute };
-  if (CONFIG.USE_MOCK_DATA) {
-    state.disputeTracker.push(record);
-  } else {
-    const graph = await getGraphClient();
-    await graph.addRow("DisputeTracker", record);
-    state.disputeTracker.push(record);
-  }
-  return record;
+  return appendRow("DisputeTracker", "disputeTracker", { id: `d${Date.now()}`, ...dispute });
 }
 
 export async function updateDispute(id, patch) {
   const idx = state.disputeTracker.findIndex((d) => d.id === id);
   if (idx === -1) throw new Error(`Dispute ${id} not found`);
   const updated = { ...state.disputeTracker[idx], ...patch };
-  if (CONFIG.USE_MOCK_DATA) {
-    state.disputeTracker[idx] = updated;
-  } else {
+  if (!CONFIG.USE_MOCK_DATA) {
     const graph = await getGraphClient();
     await graph.updateRow("DisputeTracker", id, updated);
-    state.disputeTracker[idx] = updated;
   }
+  state.disputeTracker[idx] = updated;
   return updated;
+}
+
+export async function addMeeting({ date, urn, loggedBy }) {
+  return appendRow("Meetings", "meetings", { id: `m${Date.now()}`, date, urn, loggedBy });
+}
+
+export async function addRepRecruited({ date, urn, loggedBy }) {
+  return appendRow("RepsRecruited", "repsRecruited", { id: `r${Date.now()}`, date, urn, loggedBy });
+}
+
+// Undo support for the one-click event logs: the entry was created without a
+// confirmation step, so it has to be removable just as cheaply.
+export async function removeEventLog(tableName, stateKey, id) {
+  const idx = state[stateKey].findIndex((r) => r.id === id);
+  if (idx === -1) return;
+  if (!CONFIG.USE_MOCK_DATA) {
+    const graph = await getGraphClient();
+    await graph.deleteRow(tableName, id);
+  }
+  state[stateKey].splice(idx, 1);
+}
+
+export async function appendSnapshotRows(rows) {
+  if (!CONFIG.USE_MOCK_DATA) {
+    const graph = await getGraphClient();
+    await graph.addRows("Snapshots", rows);
+  }
+  state.snapshots.push(...rows);
+  return rows;
 }

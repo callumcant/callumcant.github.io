@@ -23,6 +23,10 @@ export async function renderList(container) {
       { key: "repCoveragePercent", label: "Rep coverage", num: true, render: (r) => formatPercent(r.repCoveragePercent) },
       { key: "noRepSchools", label: "No-rep schools", num: true },
       { key: "repCommitteeExists", label: "Rep committee", render: (r) => (r.repCommitteeExists ? "Yes" : "No") },
+      { key: "noteCount", label: "Notes", num: true,
+        render: (r) => r.noteCount
+          ? `<a class="row-link" href="#/notes?level=MAT&subject=${encodeURIComponent(r.name)}">${r.noteCount}</a>`
+          : "0" },
     ],
     mats,
     { defaultSort: "totalMembers", defaultDir: "desc" }
@@ -73,7 +77,10 @@ export async function renderDetail(container, { name }) {
           <div>${escapeHtml(n.note)}</div>
           <div class="note-meta">${formatDate(n.date)} · ${escapeHtml(n.author)}</div>
         </div>`).join("")}
-      <div class="btn-row"><a class="btn" href="#/notes/new?level=MAT&subject=${encodeURIComponent(name)}">+ Add note</a></div>
+      <div class="btn-row">
+        <a class="btn" href="#/notes/new?level=MAT&subject=${encodeURIComponent(name)}">+ Add note</a>
+        ${notes.length ? `<a class="btn" href="#/notes?level=MAT&subject=${encodeURIComponent(name)}">View in notes</a>` : ""}
+      </div>
     </div>
   `;
 

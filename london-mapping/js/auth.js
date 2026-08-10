@@ -5,6 +5,15 @@ import { CONFIG } from "./config.js";
 
 const GRAPH_SCOPES = ["Files.ReadWrite", "Sites.ReadWrite.All", "User.Read"];
 
+// Used to stamp event-log entries with who logged them, without asking anyone
+// to type their name. In preview mode there's no signed-in account, so entries
+// are marked as sample data rather than attributed to a real person.
+export async function getSignedInName() {
+  if (CONFIG.USE_MOCK_DATA) return "Preview user";
+  const account = await getAccount();
+  return account?.name || account?.username || "Unknown user";
+}
+
 let msalModulePromise = null;
 function loadMsal() {
   if (!msalModulePromise) {

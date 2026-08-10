@@ -2,18 +2,22 @@
 // Excel API. Only exercised once CONFIG.USE_MOCK_DATA is false — see
 // SETUP.md for the app-registration and config.js values this needs.
 //
-// Row addressing caveat: Excel Tables via Graph don't have a stable row ID
-// — rows/itemAt(index=N) addresses by position. updateRow() below finds the
-// row's current index by scanning for a matching `id`/key value each time,
-// so it stays correct even if rows above it were added or removed, but it
-// does mean someone manually re-sorting a table in Excel while the app is
-// mid-edit could cause a race. Fine for a small organising team; worth
-// revisiting if usage grows.
+// Row addressing caveat: Excel Tables via Graph have no stable row ID —
+// rows/itemAt(index=N) addresses by position. updateRow/deleteRow below find
+// the row's current index by scanning for a matching `id` each time, so they
+// stay correct even if rows above changed, but someone manually re-sorting a
+// table in Excel mid-edit could still cause a race. Acceptable for a small
+// team; worth revisiting if usage grows.
 import { CONFIG } from "../config.js";
 import { getAccessToken } from "../auth.js";
 import { rowToObject, objectToRow } from "./table-schemas.js";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
+
+// Graph rejects oversized payloads, and a weekly snapshot is ~530 rows (more
+// if this grows to all-London), so writes are chunked rather than sent as one
+// request.
+const WRITE_BATCH_SIZE = 200;
 
 function workbookPath(suffix) {
   return `/sites/${CONFIG.graph.siteId}/drive/items/${CONFIG.graph.driveItemId}/workbook${suffix}`;
@@ -37,12 +41,22 @@ async function graphFetch(path, options = {}) {
   return res.json();
 }
 
+// Graph pages large tables; the snapshot table in particular will outgrow one
+// page within a few months, so follow @odata.nextLink rather than assuming a
+// single response holds everything.
 async function getTableRows(tableName) {
-  const data = await graphFetch(workbookPath(`/tables('${tableName}')/rows`));
-  return data.value.map((row) => rowToObject(tableName, row.values[0]));
+  const rows = [];
+  let path = workbookPath(`/tables('${tableName}')/rows`);
+  while (path) {
+    const data = await graphFetch(path);
+    for (const row of data.value) rows.push(rowToObject(tableName, row.values[0]));
+    const next = data["@odata.nextLink"];
+    path = next ? next.replace(GRAPH_BASE, "") : null;
+  }
+  return rows;
 }
 
-// Maps Excel table name -> key on the app's state object.
+// Excel table name -> key on the app's state object.
 const TABLE_TO_STATE_KEY = {
   SourceGIAS: "sourceGIAS",
   SourceWorkforce: "sourceWorkforce",
@@ -52,6 +66,9 @@ const TABLE_TO_STATE_KEY = {
   DisputeTracker: "disputeTracker",
   BranchFacts: "branchFacts",
   MatFacts: "matFacts",
+  Meetings: "meetings",
+  RepsRecruited: "repsRecruited",
+  Snapshots: "snapshots",
 };
 
 export async function loadAllTables() {
@@ -65,18 +82,37 @@ export async function loadAllTables() {
 }
 
 export async function addRow(tableName, obj) {
-  await graphFetch(workbookPath(`/tables('${tableName}')/rows`), {
-    method: "POST",
-    body: JSON.stringify({ values: [objectToRow(tableName, obj)] }),
-  });
+  await addRows(tableName, [obj]);
 }
 
-export async function updateRow(tableName, id, fullRecord) {
+export async function addRows(tableName, objects) {
+  for (let i = 0; i < objects.length; i += WRITE_BATCH_SIZE) {
+    const batch = objects.slice(i, i + WRITE_BATCH_SIZE);
+    await graphFetch(workbookPath(`/tables('${tableName}')/rows`), {
+      method: "POST",
+      body: JSON.stringify({ values: batch.map((o) => objectToRow(tableName, o)) }),
+    });
+  }
+}
+
+async function findRowIndex(tableName, id) {
   const rows = await getTableRows(tableName);
   const idx = rows.findIndex((r) => String(r.id) === String(id));
   if (idx === -1) throw new Error(`${tableName} row with id ${id} not found`);
+  return idx;
+}
+
+export async function updateRow(tableName, id, fullRecord) {
+  const idx = await findRowIndex(tableName, id);
   await graphFetch(workbookPath(`/tables('${tableName}')/rows/itemAt(index=${idx})`), {
     method: "PATCH",
     body: JSON.stringify({ values: [objectToRow(tableName, fullRecord)] }),
+  });
+}
+
+export async function deleteRow(tableName, id) {
+  const idx = await findRowIndex(tableName, id);
+  await graphFetch(workbookPath(`/tables('${tableName}')/rows/itemAt(index=${idx})`), {
+    method: "DELETE",
   });
 }
