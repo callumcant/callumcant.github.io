@@ -13,7 +13,7 @@ export const CONFIG = {
 
   // The workbook's address in SharePoint/Teams. Open the file in the browser
   // and copy the URL from the address bar — the app resolves the rest itself.
-  workbookUrl: "REPLACE_WITH_WORKBOOK_SHAREPOINT_URL",
+  workbookUrl: "https://neu365.sharepoint.com/:x:/r/sites/NEULondonTeam/Shared%20Documents/London%20data%20(do%20not%20delete)/London_Project_%20all%20london%20data%20spine%20GIAS.xlsx?d=w79c93a834bb7491488ec5a1870dd8a74&csf=1&web=1&e=HvPR4h",
 
   redirectUri: window.location.origin + window.location.pathname,
 };
