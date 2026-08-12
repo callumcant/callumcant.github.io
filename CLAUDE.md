@@ -28,7 +28,10 @@ explanation either.
 3. **`Snapshots`, `Reconciliations` and `RepCommittees` are append-only.** Never
    edit or delete past rows. They are the only record of how things looked at
    the time and cannot be reconstructed. Superseding a decision means adding a
-   newer row.
+   newer row. `Snapshots` must also stay in **insertion order** — the windowed
+   read (below) finds the recent weeks by reading the end of the table. Sorting
+   it in Excel doesn't lose data, but it does cost a slow full read until
+   someone puts it back.
 4. **No new dependencies, no build step, no CDN imports in app code.** Plain ES
    modules loaded directly by the browser. (Two pre-existing CDN loads survive
    with graceful fallbacks: MSAL from esm.sh, Leaflet from unpkg.)
@@ -176,6 +179,24 @@ blocked-CDN fallback; both are expected locally.
   mid-keystroke.
 - CSV filenames come from `csvFilename(scope, kind)`, which slugifies and dates
   them. Don't hand-build a filename.
+- **`state.snapshots` is a window, not the whole history.** Against a real
+  workbook `readSnapshotWindow` in `graph-client.js` loads the last 12 weekly
+  captures plus the baseline week, because `Snapshots` grows by one row per
+  school per week and never stops (3,000 rows/week at London scale). The
+  workbook still holds everything; the browser doesn't. Any code that treats
+  `state.snapshots` as complete — counting captures, finding the earliest date,
+  reconstructing a long trend — will be wrong in live mode and right in preview,
+  which is the worst way to be wrong. Widen the window if you need more.
+- **A windowed series has a gap in it**, so anything drawn on an evenly-spaced
+  axis must plot `recentRun(series)` from `snapshots.js`, never the raw series.
+  Otherwise the baseline point sits one step from a reading months later and the
+  line shows a change that never happened. Two-point deltas (`baselinePoint`,
+  `pointWeeksBefore`) are unaffected — they compare named dates and don't care
+  what's between them.
+- **`renderDataTable`'s `opts.maxRows` caps the DOM, not the data.** The Schools
+  table passes 200 because laying out 3,000 rows takes ~2s and the page redraws
+  as you type. Sorting still spans the whole filtered set. Don't apply the cap to
+  the CSV export — the footer line tells people to use it to get everything.
 
 ## Going live
 
@@ -191,6 +212,13 @@ flag to flip. `workbookUrl` is already set. Outstanding:
 - Stratum's real column headers are still unknown — `SourceStratum` is a
   designed guess. When the real export arrives it's a `dictionary.json` edit
   plus regeneration.
+- **Watch the console on the first real load.** Two things in `graph-client.js`
+  have only ever run against an in-memory stub, because they need a live
+  workbook: the windowed snapshot read, and the `dataBodyRange?$select=rowCount`
+  call it starts with. If Graph ignores that `$select` it returns every cell in
+  the range — worse than the full read the window exists to avoid. It falls back
+  safely either way, and logs which path it took (`[graph] snapshots: N of M
+  rows in K requests`), so the log line is the thing to check.
 
 ## Git and deploying
 
@@ -225,7 +253,21 @@ release are worth writing defensively (`handle.setItems?.(…)`) for that window
   columns; a key missing from `PICKER_GROUPS` is only reachable via the
   "Everything" preset.
 - `downloadCsv` exports rows in filter order, not the order shown on screen —
-  so re-sorting a table doesn't change the exported file.
+  so re-sorting a table doesn't change the exported file. It also exports every
+  filtered row while the Schools table shows only the first 200; that gap is
+  deliberate, and the table's footer line points at it.
+- **The weekly snapshot write isn't resumable.** `maybeCaptureSnapshot` makes
+  the first person to open the app each week write the whole capture from their
+  browser, in sequential batches of 200 (15 requests at 3,000 schools). Close
+  the tab halfway and the week is captured for some schools and not others —
+  and because de-duplication guards against duplicate rows, not missing ones,
+  that shows on the dashboard as a real-looking dip. This is an accuracy risk,
+  not a speed one, and the fix is the scheduled tenant-side flow in
+  `docs/scheduled-snapshot.md`.
+- `loadAllTables` fires all 16 table reads at the same workbook simultaneously.
+  Microsoft's Excel API guidance says to avoid high concurrency against one
+  workbook, so this makes 429 throttling likelier than sequential reads would.
+  Not yet observed, because nothing has run against the real workbook.
 - The Schools "All branches" filter actually filters `laName` (borough). A
   separate `branchName` ("NEU branch") column exists. The label and the field
   disagree; needs a decision on which one the filter should mean.
