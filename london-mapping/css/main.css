@@ -482,6 +482,28 @@ table.data-table a.row-link:hover { color: var(--accent); text-decoration: under
 .badge.live { background: var(--color-success-bg); color: var(--color-success); }
 .badge.live::before { content: "●"; }
 
+/* Collapsible table controls. `display: contents` means the wrapper has no
+   layout effect at all above the breakpoint — the filter bar and column
+   controls lay out exactly as if it weren't there — so the desktop view is
+   untouched and only the phone gets the disclosure.
+   Deliberately a class rather than the [hidden] attribute: [hidden] loses to
+   any display rule, and this element has two of them. */
+.table-controls { display: contents; }
+/* `.btn.` rather than `.controls-toggle` alone: .btn sets display:inline-flex
+   later in this file at equal specificity, so a single-class rule loses to it
+   on source order and the button stays visible on desktop. Same trap as the
+   [hidden] one noted in CLAUDE.md. */
+.btn.controls-toggle { display: none; }
+@media (max-width: 820px) {
+  .table-controls { display: none; }
+  .table-controls.is-open { display: block; }
+  .btn.controls-toggle {
+    display: inline-flex;
+    margin-bottom: var(--space-3);
+  }
+  .btn.controls-toggle[aria-expanded="true"] { margin-bottom: var(--space-4); }
+}
+
 .filter-bar {
   display: flex;
   flex-wrap: wrap;

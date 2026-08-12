@@ -206,27 +206,31 @@ export async function renderList(container, params = {}) {
       <h1>Schools</h1>
       <button class="btn" id="export-csv">Export CSV</button>
     </div>
-    <div class="filter-bar">
-      <input type="search" id="school-search" placeholder="Search name, URN or postcode"
-             value="${escapeHtml(initial.q)}" />
-      <select id="school-branch-filter">
-        <option value="">All branches</option>
-        ${branches.map((b) => `<option value="${escapeHtml(b)}"${b === initial.branch ? " selected" : ""}>${escapeHtml(b)}</option>`).join("")}
-      </select>
-      <select id="school-phase-filter">
-        <option value="">All phases</option>
-        ${phases.map((p) => `<option value="${escapeHtml(p)}"${p === initial.phase ? " selected" : ""}>${escapeHtml(p)}</option>`).join("")}
-      </select>
-      <select id="school-trust-filter">
-        <option value="">All MATs</option>
-        ${trusts.map((t) => `<option value="${escapeHtml(t)}"${t === initial.trust ? " selected" : ""}>${escapeHtml(t)}</option>`).join("")}
-      </select>
-      <select id="school-rep-filter">
-        <option value="">All schools</option>
-        <option value="no-rep"${initial.rep === "no-rep" ? " selected" : ""}>No rep only</option>
-      </select>
+    <button type="button" class="btn btn-small controls-toggle" id="controls-toggle"
+            aria-expanded="false" aria-controls="table-controls">Filters and columns</button>
+    <div class="table-controls" id="table-controls">
+      <div class="filter-bar">
+        <input type="search" id="school-search" placeholder="Search name, URN or postcode"
+               value="${escapeHtml(initial.q)}" />
+        <select id="school-branch-filter">
+          <option value="">All branches</option>
+          ${branches.map((b) => `<option value="${escapeHtml(b)}"${b === initial.branch ? " selected" : ""}>${escapeHtml(b)}</option>`).join("")}
+        </select>
+        <select id="school-phase-filter">
+          <option value="">All phases</option>
+          ${phases.map((p) => `<option value="${escapeHtml(p)}"${p === initial.phase ? " selected" : ""}>${escapeHtml(p)}</option>`).join("")}
+        </select>
+        <select id="school-trust-filter">
+          <option value="">All MATs</option>
+          ${trusts.map((t) => `<option value="${escapeHtml(t)}"${t === initial.trust ? " selected" : ""}>${escapeHtml(t)}</option>`).join("")}
+        </select>
+        <select id="school-rep-filter">
+          <option value="">All schools</option>
+          <option value="no-rep"${initial.rep === "no-rep" ? " selected" : ""}>No rep only</option>
+        </select>
+      </div>
+      <div id="column-controls"></div>
     </div>
-    <div id="column-controls"></div>
     <div class="card"><div id="schools-table"></div></div>
     <div class="result-count" id="result-count"></div>
   `;
@@ -306,11 +310,13 @@ export async function renderList(container, params = {}) {
   // once.
   searchEl.addEventListener("input", () => {
     drawTable();
+    updateToggleLabel();
     syncUrlDebounced();
   });
   [branchEl, phaseEl, trustEl, repEl].forEach((el) =>
     el.addEventListener("input", () => {
       drawTable();
+      updateToggleLabel();
       syncUrl();
     })
   );
@@ -320,6 +326,36 @@ export async function renderList(container, params = {}) {
     const scope = branchEl.value || trustEl.value || "";
     downloadCsv(csvFilename(scope, "schools"), visible, currentRows());
   });
+
+  // On a phone the filters, presets and column picker added up to a screenful
+  // of controls above the table, so the page opened on the machinery rather
+  // than on the schools. They collapse behind one button; the button says how
+  // many filters are on, so a filtered list is never mistaken for the whole
+  // one while the panel is shut. Desktop is unaffected — see .table-controls
+  // in main.css, which is `display: contents` above the breakpoint.
+  const controlsEl2 = container.querySelector("#table-controls");
+  const controlsToggle = container.querySelector("#controls-toggle");
+
+  function updateToggleLabel() {
+    const active = [branchEl.value, phaseEl.value, trustEl.value, repEl.value, searchEl.value.trim()]
+      .filter(Boolean).length;
+    controlsToggle.textContent = active
+      ? `Filters and columns (${active} on)`
+      : "Filters and columns";
+  }
+
+  controlsToggle.addEventListener("click", () => {
+    const open = controlsEl2.classList.toggle("is-open");
+    controlsToggle.setAttribute("aria-expanded", String(open));
+  });
+
+  // Opens already expanded when a link arrives carrying filters, so the state
+  // that's being applied is visible rather than hidden behind a button.
+  if (initial.q || initial.branch || initial.phase || initial.trust || initial.rep) {
+    controlsEl2.classList.add("is-open");
+    controlsToggle.setAttribute("aria-expanded", "true");
+  }
+  updateToggleLabel();
 
   drawTable();
   // A link carrying columns needs the URL left as-is; anything else gets
