@@ -57,9 +57,20 @@ plain Excel Tables, which is what the app reads and writes.
 so inserting or reordering one shifts everything after it. Adding data below
 the last row is fine — that's what Excel Tables are for.
 
-**Never edit or delete rows in `Snapshots`.** It's an append-only record of how
-things looked at the time, written automatically, and it cannot be
-reconstructed if lost.
+**Never edit or delete rows in `Snapshots`, `Reconciliations` or
+`RepCommittees`.** All three are append-only records of how things stood at a
+point in time, and none of them can be reconstructed if lost:
+
+- `Snapshots` — the weekly membership and headcount figures, written
+  automatically. Without it there is no "up since September", only an
+  assertion.
+- `Reconciliations` — the decisions someone made about mismatched data
+  (this workplace code is that school, this school closed and became that
+  one). Deleting them means redoing the same detective work at every refresh.
+- `RepCommittees` — when a trust's rep committee started or stopped. Correcting
+  a mistake means adding a newer row, not editing the old one.
+
+They will accumulate rows and look untidy. That is what they are for.
 
 ---
 

@@ -1,7 +1,14 @@
 # Map view — design
 
-Not built yet. This records the decisions already taken so they don't need
-re-litigating, and flags what makes it non-trivial.
+**Built.** It shipped as `js/pages/map.js` at `#/map`, with postcode
+geocoding cached to the `SchoolGeo` table (`js/data/geocode.js`). This file is
+kept as the record of *why* it works the way it does, so the decisions below
+don't get re-litigated — the "what to build" section reads as a description of
+what exists, not a plan.
+
+One thing to know before changing it: the sandbox blocks the Leaflet CDN and
+OpenStreetMap tiles, so the map shows its blocked-CDN fallback when developing
+here. That is the environment, not a regression.
 
 ## What it's for
 
