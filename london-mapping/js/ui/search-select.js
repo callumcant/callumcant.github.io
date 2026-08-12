@@ -37,9 +37,15 @@ export function renderSearchSelect(container, items, options = {}) {
   const limit = options.limit ?? MAX_RESULTS;
   const label = options.label || "Search";
   const defaultLabel = options.defaultLabel || "Suggestions";
-  const featured = items.filter((i) => i.featured);
-  const grouped = items.some((i) => i.group);
   const groupOrder = options.groupOrder || [];
+
+  // Held in `let` so a caller can mount the box before it has anything to put
+  // in it and fill it in later — the header search needs a tappable input from
+  // the first paint, but its index costs a whole workbook load.
+  let all = items;
+  let featured = all.filter((i) => i.featured);
+  let grouped = all.some((i) => i.group);
+  let loading = options.loading === true;
 
   let query = "";
   let highlighted = 0;
@@ -86,7 +92,7 @@ export function renderSearchSelect(container, items, options = {}) {
   function matches() {
     const q = query.trim().toLowerCase();
     if (!q) return featured;
-    const found = items.filter((i) => hits(i, q));
+    const found = all.filter((i) => hits(i, q));
     if (!grouped) return found.slice(0, limit);
 
     // Capped per group rather than overall, so a common word like "park"
@@ -106,12 +112,19 @@ export function renderSearchSelect(container, items, options = {}) {
     const showingFeatured = !query.trim();
 
     if (results.length === 0) {
+      list.innerHTML = "";
+      input.removeAttribute("aria-activedescendant");
+      // "No match" would be a lie while the index is still being built, and
+      // the answer changes a moment later without the user doing anything.
+      if (loading) {
+        hint.textContent = "Loading…";
+        status.textContent = "Loading search results";
+        return;
+      }
       // A term the user typed, echoed back — an empty box leaves them
       // wondering whether it searched at all.
-      list.innerHTML = "";
-      hint.textContent = `No match for "${query.trim()}".`;
-      input.removeAttribute("aria-activedescendant");
-      status.textContent = `No results for ${query.trim()}`;
+      hint.textContent = query.trim() ? `No match for "${query.trim()}".` : defaultLabel;
+      status.textContent = query.trim() ? `No results for ${query.trim()}` : "";
       return;
     }
 
@@ -230,5 +243,14 @@ export function renderSearchSelect(container, items, options = {}) {
     blur: () => input.blur(),
     clear,
     hasQuery: () => Boolean(query.trim()),
+    // Late-arriving index. Redraws in place, so anything typed while it was
+    // loading resolves into results rather than being lost.
+    setItems(next) {
+      all = next;
+      featured = all.filter((i) => i.featured);
+      grouped = all.some((i) => i.group);
+      loading = false;
+      draw();
+    },
   };
 }

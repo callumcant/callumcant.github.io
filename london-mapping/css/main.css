@@ -204,6 +204,13 @@ th:focus-visible {
     white-space: nowrap;
   }
   .app-header-search { max-width: none; }
+}
+/* On a narrow phone the brand and the search box are competing for the same
+   row, and the search box loses — it ends up too small to read a placeholder
+   in. The menu button and the page heading already say where you are, so the
+   brand is the one that gives way. */
+@media (max-width: 560px) {
+  .app-header-brand { display: none; }
 
   .sidebar {
     position: fixed;

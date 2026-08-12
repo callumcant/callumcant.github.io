@@ -88,7 +88,7 @@ function shellHtml() {
           <div class="app-header-brand">NEU London</div>
           <div class="app-header-search" id="global-search"></div>
         </header>
-        ${isPreviewMode() ? `<div class="mock-banner">You're viewing sample data, not the real workbook. Still to fill in: ${missingConfigKeys().join(", ")} — <a href="#/setup">open setup</a>.</div>` : ""}
+        ${isPreviewMode() ? `<div class="mock-banner"><span>You're viewing sample data, not the real workbook. Still to fill in: ${escapeHtml(missingConfigKeys().join(", "))} — <a href="#/setup">open setup</a>.</span></div>` : ""}
         <div id="content"></div>
       </main>
     </div>
@@ -188,51 +188,54 @@ function initGlobalSearch(app) {
     ];
   }
 
-  async function ensureMounted() {
-    if (handle || building) return building;
-    mount.innerHTML = `<p class="search-select-hint">Loading…</p>`;
+  // The INPUT is mounted immediately; only the index is deferred. Making the
+  // whole component lazy left the mobile header with nothing to tap — on a
+  // phone there's no "/" shortcut to trigger the mount with.
+  handle = renderSearchSelect(mount, [], {
+    label: "Search",
+    placeholder: "Search schools, branches and MATs…",
+    defaultLabel: "Type a school, branch or MAT name, a URN or a postcode",
+    groupOrder: ["Schools", "Branches", "MATs"],
+    autofocus: false,
+    loading: true,
+    onEscape: () => {
+      close();
+      handle.blur();
+    },
+    // Blur as well as close. Leaving focus in a box that has just been hidden
+    // means the next thing typed — including "/" — goes into an input nobody
+    // can see.
+    onNavigate: () => {
+      handle.clear();
+      handle.blur();
+      close();
+    },
+  });
+
+  function ensureIndex() {
+    if (building) return building;
     building = buildItems()
-      .then((items) => {
-        handle = renderSearchSelect(mount, items, {
-          label: "Search",
-          placeholder: "Search schools, branches and MATs…",
-          defaultLabel: "Type a school, branch or MAT name, a URN or a postcode",
-          groupOrder: ["Schools", "Branches", "MATs"],
-          autofocus: false,
-          onEscape: () => {
-            close();
-            handle.blur();
-          },
-          // Blur as well as close. Leaving focus in a box that has just been
-          // hidden means the next thing typed — including "/" — goes into an
-          // input nobody can see.
-          onNavigate: () => {
-            handle.clear();
-            handle.blur();
-            close();
-          },
-        });
-      })
+      .then((items) => handle.setItems(items))
       .catch((err) => {
         console.error("[search] could not build the search index", err);
-        mount.innerHTML = `<p class="search-select-hint">Search is unavailable — the workbook didn't load.</p>`;
+        handle.setItems([]);
       });
     return building;
   }
 
-  async function open() {
+  function open() {
     wrap.classList.add("is-open");
-    await ensureMounted();
-    handle?.focus();
+    ensureIndex();
+    handle.focus();
   }
 
   wrap.addEventListener("focusin", () => {
     wrap.classList.add("is-open");
-    ensureMounted();
+    ensureIndex();
   });
   wrap.addEventListener("mousedown", () => {
     wrap.classList.add("is-open");
-    ensureMounted();
+    ensureIndex();
   });
   // A click anywhere else dismisses it, but only when nothing is typed —
   // closing a box someone has half-filled loses their work.
