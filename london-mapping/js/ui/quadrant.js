@@ -162,6 +162,98 @@ export function classifyQuadrant(school, peers, options = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Badge — the same classification, rendered small for the school page
+//
+// Someone who clicks a dot on the chart and lands on a school page arrives
+// with context they immediately lose. This puts it back.
+//
+// It goes through classifyQuadrant() like the chart does, so the two can never
+// disagree, and it uses the chart's DEFAULT settings — all phases, 10-member
+// floor — so a user arriving from an unfiltered chart sees the same answer.
+//
+// It always names its peer group, because the answer genuinely depends on it:
+// a school can be Strong within its borough and Cold within its trust, since
+// the medians are computed over different sets. A badge that didn't say which
+// comparison it had made would be quietly wrong half the time.
+// ---------------------------------------------------------------------------
+
+// Which cell of the 2×2 glyph each quadrant occupies, matching the chart's
+// axes: density rightward, turnout upward.
+const GLYPH_CELL = {
+  strong: [21.5, 8.5],
+  core: [8.5, 8.5],
+  members: [21.5, 21.5],
+  cold: [8.5, 21.5],
+};
+
+function glyph(quadrantKey) {
+  const dot = GLYPH_CELL[quadrantKey];
+  return `
+    <svg class="quadrant-badge-glyph" viewBox="0 0 30 30" aria-hidden="true" focusable="false">
+      <rect x="2" y="2" width="26" height="26" rx="3" />
+      <line x1="15" y1="2" x2="15" y2="28" />
+      <line x1="2" y1="15" x2="28" y2="15" />
+      ${dot ? `<circle class="quadrant-badge-dot" cx="${dot[0]}" cy="${dot[1]}" r="4" />` : ""}
+    </svg>`;
+}
+
+/**
+ * HTML for one badge. Returns "" only if there is no school.
+ *
+ * @param {Object} school
+ * @param {Array}  peers      the comparison group (a branch's or a trust's schools)
+ * @param {Object} options    { peerLabel, href, minMembers }
+ */
+export function quadrantBadge(school, peers, options = {}) {
+  if (!school) return "";
+  const peerLabel = options.peerLabel || "its peers";
+  const minMembers = options.minMembers ?? 10;
+  const href = options.href || "";
+
+  // Say what is true rather than guessing a quadrant. Each of these is a
+  // different missing thing, and lumping them into one "unknown" would hide
+  // which source needs filling in.
+  let state = null;
+  if (school.turnout2026 == null) {
+    state = "Not plotted — no ballot data";
+  } else if (school.densityTotal == null) {
+    state = "Not plotted — no headcount, so no density";
+  } else if ((school.membersTotal ?? 0) < minMembers) {
+    state = `Not plotted — fewer than ${minMembers} members`;
+  }
+
+  let quadrant = null;
+  if (!state) {
+    const context = quadrantContext(peers, { minMembers });
+    if (context.plotted.length < MIN_PLOTTED) {
+      state = "Too few comparable schools";
+    } else if (!context.densitySplits || !context.turnoutSplits) {
+      state = "Comparable schools too alike to split";
+    } else {
+      quadrant = classifyQuadrant(school, peers, { context });
+    }
+  }
+
+  const label = quadrant ? quadrant.label : state;
+  const title = quadrant
+    ? `${quadrant.full}. Position on the ${peerLabel} organising quadrant, at the chart's default settings: all phases, schools with at least ${minMembers} members.`
+    : `${state}. Measured against the ${peerLabel} organising quadrant at its default settings: all phases, schools with at least ${minMembers} members.`;
+
+  const body = `
+    ${glyph(quadrant?.key)}
+    <span class="quadrant-badge-text">
+      <span class="quadrant-badge-label">${escapeHtml(label)}</span>
+      <span class="quadrant-badge-peers">compared with ${escapeHtml(peerLabel)}</span>
+    </span>`;
+
+  return href
+    ? `<a class="quadrant-badge${quadrant ? "" : " is-unplotted"}" href="${escapeHtml(href)}"
+         title="${escapeHtml(title)}"
+         aria-label="${escapeHtml(`${label}, compared with ${peerLabel}. Opens the ${peerLabel} page.`)}">${body}</a>`
+    : `<span class="quadrant-badge${quadrant ? "" : " is-unplotted"}" title="${escapeHtml(title)}">${body}</span>`;
+}
+
+// ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
 

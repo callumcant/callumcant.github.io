@@ -6,12 +6,15 @@ import {
   escapeHtml,
 } from "../ui.js";
 import { getSignedInName } from "../auth.js";
+import { quadrantBadge } from "../ui/quadrant.js";
 
 const PREFS_KEY = "london-mapping:schools:columns";
 
-// Shared by the schools/branches/MATs lists: the latest note's title, linked
-// to the filtered notes view, with the count alongside when there's more than
-// one so the extra notes aren't hidden by showing only the newest.
+// The latest note's title, linked to the filtered notes view, with the count
+// alongside when there's more than one so the extra notes aren't hidden by
+// showing only the newest. Exported because it was shared with the branch and
+// MAT list tables; those are now search boxes, so today only this table uses
+// it — kept exported for the next list view that needs the same cell.
 export function noteLinkCell(row, level, subject) {
   if (!row.noteCount) return `<span class="muted-cell">—</span>`;
   const href = `#/notes?level=${level}&subject=${encodeURIComponent(subject)}`;
@@ -277,6 +280,25 @@ export async function renderDetail(container, { urn }) {
     ? (/^https?:/.test(school.schoolWebsite) ? school.schoolWebsite : "https://" + school.schoolWebsite)
     : null;
 
+  // Where this school sits on the organising quadrant, and against whom.
+  // The branch is the default comparison; a target MAT gets its own badge
+  // rather than one silently overriding the other, because the two medians
+  // are computed over different sets and can genuinely disagree.
+  const isTargetMat = !!school.trust
+    && state.matFacts.some((f) => f.mat === school.trust && f.isTargetMat);
+  const badges = [
+    quadrantBadge(school, schools.filter((s) => s.laName === school.laName), {
+      peerLabel: school.laName,
+      href: `#/branches/${encodeURIComponent(school.laName)}`,
+    }),
+    isTargetMat
+      ? quadrantBadge(school, schools.filter((s) => s.trust === school.trust), {
+          peerLabel: school.trust,
+          href: `#/mats/${encodeURIComponent(school.trust)}`,
+        })
+      : "",
+  ].filter(Boolean).join("");
+
   container.innerHTML = `
     <div class="breadcrumb"><a href="#/schools">← Schools</a></div>
     <div class="topbar">
@@ -288,6 +310,8 @@ export async function renderDetail(container, { urn }) {
       ${school.trust ? ` · <a href="#/mats/${encodeURIComponent(school.trust)}">${escapeHtml(school.trust)}</a>` : " · LA maintained / no MAT"}
       ${school.repCount === 0 ? ` · <span class="pill rag-amber">No rep</span>` : ""}
     </div>
+
+    <div class="quadrant-badges">${badges}</div>
 
     <div class="btn-row" style="margin-top:0;">
       <button class="btn btn-primary" id="log-meeting">+ Log meeting</button>

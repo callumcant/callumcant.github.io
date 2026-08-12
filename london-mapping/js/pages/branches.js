@@ -1,8 +1,8 @@
 import { loadAll } from "../data/store.js";
 import { buildSchoolLevel, buildBranchLevel } from "../data/rollups.js";
 import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml } from "../ui.js";
-import { noteLinkCell } from "./schools.js";
 import { renderQuadrant } from "../ui/quadrant.js";
+import { renderSearchSelect } from "../ui/search-select.js";
 
 export async function renderList(container) {
   const state = await loadAll();
@@ -11,33 +11,25 @@ export async function renderList(container) {
 
   container.innerHTML = `
     <div class="topbar"><h1>Branches</h1></div>
-    <div class="card">
-      <div id="branches-table"></div>
-    </div>
+    <div class="card"><div id="branch-search"></div></div>
   `;
 
-  renderDataTable(
-    container.querySelector("#branches-table"),
-    [
-      { key: "name", label: "Branch", render: (r) => `<a class="row-link" href="#/branches/${encodeURIComponent(r.name)}">${escapeHtml(r.name)}${r.isProjectBranch ? " ⭐" : ""}</a>` },
-      { key: "schoolsCount", label: "Schools", num: true },
-      { key: "headcountTotal", label: "Headcount", num: true, render: (r) => formatNumber(r.headcountTotal) },
-      { key: "membersTotal", label: "Members", num: true, render: (r) => formatNumber(r.membersTotal) },
-      { key: "densityTotal", label: "Density", num: true, render: (r) => formatPercent(r.densityTotal) },
-      { key: "densityTeachers", label: "Density (teachers)", num: true, render: (r) => formatPercent(r.densityTeachers) },
-      { key: "densitySupport", label: "Density (support)", num: true, render: (r) => formatPercent(r.densitySupport) },
-      { key: "reps", label: "Reps", num: true },
-      { key: "memberRepRatio", label: "Member:rep" },
-      { key: "noRepSchools", label: "No-rep schools", num: true },
-      { key: "schoolMeetingsHeld", label: "Meetings", num: true },
-      { key: "repsRecruited", label: "Reps recruited", num: true },
-      { key: "latestNoteTitle", label: "Latest note", wrap: true,
-        sortValue: (r) => r.lastNoteDate,
-        render: (r) => noteLinkCell(r, "Branch", r.name) },
-    ],
-    branches,
-    { defaultSort: "membersTotal", defaultDir: "desc" }
-  );
+  // Sorted so the starting list and any tie in the results read predictably.
+  const items = [...branches]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((b) => ({
+      name: `${b.name}${b.isProjectBranch ? " ⭐" : ""}`,
+      // Enough to confirm it's the right branch before clicking, and no more.
+      summary: `${formatNumber(b.schoolsCount)} schools · ${formatNumber(b.membersTotal)} members · ${formatPercent(b.densityTotal)} density`,
+      href: `#/branches/${encodeURIComponent(b.name)}`,
+      featured: b.isProjectBranch,
+    }));
+
+  renderSearchSelect(container.querySelector("#branch-search"), items, {
+    label: "Search branches",
+    placeholder: "Search branches",
+    defaultLabel: "Project branches",
+  });
 }
 
 export async function renderDetail(container, { name }) {

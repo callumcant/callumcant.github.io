@@ -1,8 +1,8 @@
 import { loadAll } from "../data/store.js";
 import { buildSchoolLevel, buildMatLevel } from "../data/rollups.js";
 import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml } from "../ui.js";
-import { noteLinkCell } from "./schools.js";
 import { renderQuadrant } from "../ui/quadrant.js";
+import { renderSearchSelect } from "../ui/search-select.js";
 
 export async function renderList(container) {
   const state = await loadAll();
@@ -11,29 +11,23 @@ export async function renderList(container) {
 
   container.innerHTML = `
     <div class="topbar"><h1>MATs</h1></div>
-    <div class="card"><div id="mats-table"></div></div>
+    <div class="card"><div id="mat-search"></div></div>
   `;
 
-  renderDataTable(
-    container.querySelector("#mats-table"),
-    [
-      { key: "name", label: "Trust", render: (r) => `<a class="row-link" href="#/mats/${encodeURIComponent(r.name)}">${escapeHtml(r.name)}${r.isTargetMat ? " ⭐" : ""}</a>` },
-      { key: "schoolCount", label: "Schools", num: true },
-      { key: "boroughsPresent", label: "Boroughs", render: (r) => escapeHtml(r.boroughsPresent.join(", ")) },
-      { key: "headcountTotal", label: "Headcount", num: true, render: (r) => formatNumber(r.headcountTotal) },
-      { key: "densityTotal", label: "Density", num: true, render: (r) => formatPercent(r.densityTotal) },
-      { key: "densityTeachers", label: "Density (teachers)", num: true, render: (r) => formatPercent(r.densityTeachers) },
-      { key: "densitySupport", label: "Density (support)", num: true, render: (r) => formatPercent(r.densitySupport) },
-      { key: "repCoveragePercent", label: "Rep coverage", num: true, render: (r) => formatPercent(r.repCoveragePercent) },
-      { key: "noRepSchools", label: "No-rep schools", num: true },
-      { key: "repCommitteeExists", label: "Rep committee", render: (r) => (r.repCommitteeExists ? "Yes" : "No") },
-      { key: "latestNoteTitle", label: "Latest note", wrap: true,
-        sortValue: (r) => r.lastNoteDate,
-        render: (r) => noteLinkCell(r, "MAT", r.name) },
-    ],
-    mats,
-    { defaultSort: "membersTotal", defaultDir: "desc" }
-  );
+  const items = [...mats]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((m) => ({
+      name: `${m.name}${m.isTargetMat ? " ⭐" : ""}`,
+      summary: `${formatNumber(m.schoolCount)} schools · ${m.boroughsPresent.length} ${m.boroughsPresent.length === 1 ? "borough" : "boroughs"} · ${formatNumber(m.membersTotal)} members · ${formatPercent(m.densityTotal)} density`,
+      href: `#/mats/${encodeURIComponent(m.name)}`,
+      featured: m.isTargetMat,
+    }));
+
+  renderSearchSelect(container.querySelector("#mat-search"), items, {
+    label: "Search MATs",
+    placeholder: "Search MATs",
+    defaultLabel: "Target MATs",
+  });
 }
 
 export async function renderDetail(container, { name }) {
