@@ -570,6 +570,129 @@ table.data-table.sticky-first td:first-child::after {
 .sparkline { display: block; width: 100%; height: 28px; }
 .tile-delta.flat { color: var(--text-muted); }
 
+/* Organising quadrant (js/ui/quadrant.js)
+   Hand-rolled SVG, no charting library. Nothing is carried by hue alone:
+   rep status is fill-vs-hollow and membership is dot size, so it survives
+   greyscale printing and colourblind viewing. */
+.quadrant-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.quadrant-controls label { font-size: var(--text-xs); color: var(--text-secondary); }
+.quadrant-caption {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  max-width: 76ch;
+}
+.quadrant-footnote {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.quadrant-footnote:empty { display: none; }
+
+.quadrant-plot { position: relative; }
+/* Scrolls sideways inside its own box on a narrow screen. The tooltip lives
+   outside this wrapper so it is never clipped by the scroll container. */
+.quadrant-scroll { overflow-x: auto; }
+.quadrant-svg {
+  display: block;
+  width: 100%;
+  min-width: 480px;
+  height: auto;
+  max-height: 520px;
+}
+
+.quadrant-grid { stroke: var(--gridline); stroke-width: 1; }
+.quadrant-tick, .quadrant-corner {
+  fill: var(--text-muted);
+  font-size: 13px;
+  font-family: var(--font-ui);
+}
+.quadrant-axis-title {
+  fill: var(--text-secondary);
+  font-size: 14px;
+  font-weight: var(--weight-medium);
+  font-family: var(--font-ui);
+}
+/* Quadrant names sit quietly behind the data — they are orientation, not
+   content, and must never compete with the dots. */
+.quadrant-corner { font-size: 13px; font-weight: var(--weight-semibold); opacity: 0.75; }
+.quadrant-corner-hint { font-size: 11px; font-weight: var(--weight-regular); }
+/* Painted over the dots, so a halo in the card colour keeps them readable
+   where a large school sits in the corner it names. */
+.quadrant-labels {
+  pointer-events: none;
+  paint-order: stroke fill;
+  stroke: var(--surface-card);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+}
+.quadrant-svg:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-md); }
+
+.quadrant-median { stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.quadrant-median-label {
+  fill: var(--text-muted);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  font-weight: var(--weight-medium);
+}
+
+.quadrant-dot {
+  fill: var(--accent-hover);
+  fill-opacity: 0.72;
+  stroke: var(--accent-hover);
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+/* No rep: hollow, and a different colour — either cue alone is enough. */
+.quadrant-dot.no-rep {
+  fill: var(--surface-card);
+  fill-opacity: 0.9;
+  stroke: var(--color-warning);
+  stroke-width: 2.5;
+}
+.quadrant-dot:focus { outline: none; }
+.quadrant-dot-lifted { fill-opacity: 0.95; pointer-events: none; }
+/* Focus/hover ring. --focus-ring is a box-shadow, which browsers don't paint
+   on SVG shapes, so it is drawn as a circle at the same 3px width. */
+.quadrant-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-opacity: 0.55;
+}
+.quadrant-highlight { pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .quadrant-dot { transition: fill-opacity var(--duration-fast) var(--ease-standard); }
+}
+
+.quadrant-tooltip {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-2) var(--space-3);
+  max-width: 260px;
+  pointer-events: none;
+  background: var(--surface-card);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-2xs);
+  color: var(--text-secondary);
+}
+.quadrant-tooltip strong { color: var(--text-primary); font-size: var(--text-xs); }
+/* display:flex above outranks the UA stylesheet's [hidden] rule, so the
+   hidden state has to be restated — otherwise an empty tooltip sits visible
+   in the corner of every chart. */
+.quadrant-tooltip[hidden] { display: none; }
+
 /* Toast — undo affordance for the one-click event logs */
 .toast {
   position: fixed;

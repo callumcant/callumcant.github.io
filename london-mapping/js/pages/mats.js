@@ -2,6 +2,7 @@ import { loadAll } from "../data/store.js";
 import { buildSchoolLevel, buildMatLevel } from "../data/rollups.js";
 import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml } from "../ui.js";
 import { noteLinkCell } from "./schools.js";
+import { renderQuadrant } from "../ui/quadrant.js";
 
 export async function renderList(container) {
   const state = await loadAll();
@@ -71,6 +72,9 @@ export async function renderDetail(container, { name }) {
       <div class="tile"><div class="tile-label">Rep committee exists?</div><div class="tile-value">${mat.repCommitteeExists ? "Yes" : "No"}</div></div>
     </div>
 
+    <div class="section-title">Organising quadrant</div>
+    <div class="card"><div id="mat-quadrant"></div></div>
+
     <div class="section-title">Schools in this trust</div>
     <div class="card"><div id="mat-schools-table"></div></div>
 
@@ -88,6 +92,10 @@ export async function renderDetail(container, { name }) {
       </div>
     </div>
   `;
+
+  renderQuadrant(container.querySelector("#mat-quadrant"), mat.schools, {
+    title: `${mat.name} organising quadrant`,
+  });
 
   renderDataTable(
     container.querySelector("#mat-schools-table"),

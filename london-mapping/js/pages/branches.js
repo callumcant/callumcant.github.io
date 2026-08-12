@@ -2,6 +2,7 @@ import { loadAll } from "../data/store.js";
 import { buildSchoolLevel, buildBranchLevel } from "../data/rollups.js";
 import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml } from "../ui.js";
 import { noteLinkCell } from "./schools.js";
+import { renderQuadrant } from "../ui/quadrant.js";
 
 export async function renderList(container) {
   const state = await loadAll();
@@ -82,6 +83,9 @@ export async function renderDetail(container, { name }) {
         : ""
     }
 
+    <div class="section-title">Organising quadrant</div>
+    <div class="card"><div id="branch-quadrant"></div></div>
+
     <div class="section-title">Schools in ${escapeHtml(branch.name)}</div>
     <div class="card"><div id="branch-schools-table"></div></div>
 
@@ -99,6 +103,10 @@ export async function renderDetail(container, { name }) {
       </div>
     </div>
   `;
+
+  renderQuadrant(container.querySelector("#branch-quadrant"), branch.schools, {
+    title: `${branch.name} organising quadrant`,
+  });
 
   renderDataTable(
     container.querySelector("#branch-schools-table"),
