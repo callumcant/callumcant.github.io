@@ -31,6 +31,7 @@ const state = {
   matFacts: [],
   meetings: [],
   repsRecruited: [],
+  repCommittees: [],
   snapshots: [],
   schoolGeo: [],
   asOfDate: null,
@@ -53,6 +54,7 @@ export async function loadAll() {
     state.matFacts = mock.matFacts;
     state.meetings = [...mock.meetings];
     state.repsRecruited = [...mock.repsRecruited];
+    state.repCommittees = [...mock.repCommittees];
     state.snapshots = [...mock.snapshots];
     state.schoolGeo = [...mock.schoolGeo];
     state.asOfDate = new Date();
@@ -107,6 +109,15 @@ export async function addMeeting({ date, urn, loggedBy }) {
 export async function addRepRecruited({ date, urn, repName, loggedBy }) {
   return appendRow("RepsRecruited", "repsRecruited", {
     id: `r${Date.now()}`, date, urn, repName, loggedBy,
+  });
+}
+
+// Append-only, like every other reporter: changing a trust's committee status
+// adds a row with the date it changed rather than overwriting the last one, so
+// the history of when a committee was in place survives.
+export async function logRepCommittee({ mat, exists, effectiveFrom, loggedBy }) {
+  return appendRow("RepCommittees", "repCommittees", {
+    id: `rcm${Date.now()}`, mat, exists, effectiveFrom, loggedBy,
   });
 }
 

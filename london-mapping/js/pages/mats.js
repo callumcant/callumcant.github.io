@@ -1,8 +1,12 @@
 import { loadAll } from "../data/store.js";
 import { buildSchoolLevel, buildMatLevel } from "../data/rollups.js";
-import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml } from "../ui.js";
+import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml, showToast } from "../ui.js";
 import { renderQuadrant } from "../ui/quadrant.js";
 import { renderSearchSelect } from "../ui/search-select.js";
+import { levelHeaderHtml, headlineTiles, footerStat } from "../ui/level-header.js";
+import { snapshotSeries, baselinePoint } from "../data/snapshots.js";
+import { logRepCommittee } from "../data/store.js";
+import { getSignedInName } from "../auth.js";
 
 export async function renderList(container) {
   const state = await loadAll();
@@ -30,6 +34,96 @@ export async function renderList(container) {
   });
 }
 
+// Rep committee reporter. `repCommitteeExists` used to be a manual MatFacts
+// column shown read-only, with no date and no way to change it in the app —
+// so it went stale and nobody could tell when it had last been true.
+//
+// Same shape as the meeting and rep-recruited reporters: a deliberate action
+// with a date, appended rather than overwritten. The switch flips optimistically
+// so the click feels answered, but nothing is written until Confirm — cancelling
+// puts it back.
+function repCommitteeControl(mat) {
+  const on = mat.repCommitteeExists;
+  const since = mat.repCommitteeSince;
+  return `
+    <span class="level-footer-stat committee-control">
+      <span class="level-footer-label">Rep committee</span>
+      <button type="button" id="committee-toggle" class="committee-toggle" role="switch"
+              aria-checked="${on ? "true" : "false"}"
+              aria-label="Rep committee at ${escapeHtml(mat.name)}: currently ${on ? "yes" : "no"}. Activate to change.">
+        <span class="committee-track" aria-hidden="true"><span class="committee-thumb"></span></span>
+        <span class="committee-state">${on ? "Yes" : "No"}</span>
+      </button>
+      <span class="committee-since">${
+        since
+          ? `Committee ${on ? "since" : "ended"} ${escapeHtml(formatDate(since))}`
+          : mat.repCommitteeReported ? "" : "Not yet reported in the app"
+      }</span>
+      <span class="committee-form" id="committee-form" hidden>
+        <label for="committee-date">Effective from</label>
+        <input type="date" id="committee-date" />
+        <button type="button" class="btn btn-primary" id="committee-confirm">Confirm</button>
+        <button type="button" class="btn" id="committee-cancel">Cancel</button>
+      </span>
+    </span>`;
+}
+
+function wireRepCommittee(container, mat, redraw) {
+  const toggle = container.querySelector("#committee-toggle");
+  const form = container.querySelector("#committee-form");
+  if (!toggle || !form) return;
+  const dateInput = container.querySelector("#committee-date");
+  const stateLabel = toggle.querySelector(".committee-state");
+  const original = toggle.getAttribute("aria-checked") === "true";
+
+  // The label has to move with aria-checked. Leaving it describing the saved
+  // status while the switch reads "on" tells a screen-reader user two
+  // contradictory things about the same control.
+  function setVisual(on) {
+    toggle.setAttribute("aria-checked", on ? "true" : "false");
+    stateLabel.textContent = on ? "Yes" : "No";
+    toggle.setAttribute("aria-label", on === original
+      ? `Rep committee at ${mat.name}: currently ${on ? "yes" : "no"}. Activate to change.`
+      : `Rep committee at ${mat.name}: changing to ${on ? "yes" : "no"}, not saved yet. Confirm the effective date to save.`);
+  }
+
+  function close() {
+    form.hidden = true;
+    setVisual(original);
+    toggle.focus();
+  }
+
+  toggle.addEventListener("click", () => {
+    if (!form.hidden) return close();
+    setVisual(!original);
+    dateInput.value = new Date().toISOString().slice(0, 10);
+    form.hidden = false;
+    dateInput.focus();
+  });
+
+  container.querySelector("#committee-cancel").addEventListener("click", close);
+
+  // Escape cancels, matching the micro-form dialogs elsewhere. Bound to the
+  // whole control rather than the form, because focus is just as likely to be
+  // back on the switch as inside the form, and Escape should mean the same
+  // thing in both places. Capture phase, so a native <input type="date">
+  // handling Escape for its own picker can't swallow it first.
+  (toggle.closest(".committee-control") || form).addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !form.hidden) { e.preventDefault(); close(); }
+  }, true);
+
+  container.querySelector("#committee-confirm").addEventListener("click", async () => {
+    const effectiveFrom = dateInput.value;
+    if (!effectiveFrom) { dateInput.focus(); return; }
+    const loggedBy = await getSignedInName();
+    await logRepCommittee({ mat: mat.name, exists: !original, effectiveFrom, loggedBy });
+    showToast(
+      `Rep committee at ${mat.name} recorded as ${!original ? "yes" : "no"} from ${formatDate(effectiveFrom)}`
+    );
+    redraw();
+  });
+}
+
 export async function renderDetail(container, { name }) {
   const state = await loadAll();
   const schools = buildSchoolLevel(state);
@@ -45,26 +139,38 @@ export async function renderDetail(container, { name }) {
     .filter((n) => n.level === "MAT" && n.subject === name)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 
+  const series = snapshotSeries(state.snapshots, mat.schools.map((s) => String(s.urn)));
+
   container.innerHTML = `
     <div class="breadcrumb"><a href="#/mats">← MATs</a></div>
     <div class="topbar"><h1>${escapeHtml(mat.name)}${mat.isTargetMat ? " ⭐ Target MAT" : ""}</h1></div>
 
-    <div class="tile-grid">
-      <div class="tile"><div class="tile-label">Schools</div><div class="tile-value">${mat.schoolCount}</div></div>
-      <div class="tile"><div class="tile-label">Boroughs present</div><div class="tile-value text-value">${escapeHtml(mat.boroughsPresent.join(", "))}</div></div>
-      <div class="tile"><div class="tile-label">Phases</div><div class="tile-value text-value">${escapeHtml(mat.phasesPresent.join(", "))}</div></div>
-      <div class="tile"><div class="tile-label">Workforce</div><div class="tile-value">${formatNumber(mat.headcountTotal)}</div></div>
-      <div class="tile"><div class="tile-label">Members</div><div class="tile-value">${formatNumber(mat.membersTotal)}</div></div>
-      <div class="tile"><div class="tile-label">Density</div><div class="tile-value">${formatPercent(mat.densityTotal)}</div></div>
-      <div class="tile"><div class="tile-label">Density (teachers)</div><div class="tile-value">${formatPercent(mat.densityTeachers)}</div></div>
-      <div class="tile"><div class="tile-label">Density (leadership)</div><div class="tile-value">${formatPercent(mat.densityLeadership)}</div></div>
-      <div class="tile"><div class="tile-label">Density (support)</div><div class="tile-value">${formatPercent(mat.densitySupport)}</div></div>
-      <div class="tile"><div class="tile-label">Rep coverage</div><div class="tile-value">${formatPercent(mat.repCoveragePercent)}</div></div>
-      <div class="tile"><div class="tile-label">Member:rep ratio</div><div class="tile-value">${mat.memberRepRatio}</div></div>
-      <div class="tile"><div class="tile-label">No-rep schools</div><div class="tile-value">${mat.noRepSchools}</div></div>
-      <div class="tile"><div class="tile-label">Members in no-rep schools</div><div class="tile-value">${formatNumber(mat.membersInNoRepSchools)}</div></div>
-      <div class="tile"><div class="tile-label">Rep committee exists?</div><div class="tile-value">${mat.repCommitteeExists ? "Yes" : "No"}</div></div>
-    </div>
+    ${levelHeaderHtml({
+      identityParts: [
+        `${formatNumber(mat.schoolCount)} schools`,
+        mat.phasesPresent.join(", ").toLowerCase(),
+        `${formatNumber(mat.headcountTotal)} staff`,
+        `${formatNumber(mat.membersTotal)} members`,
+      ],
+      // Boroughs were a five-item list stretching the whole first row as a
+      // "tile". They're navigation, so they're chips that go somewhere.
+      chips: mat.boroughsPresent.map((b) => ({
+        label: b,
+        href: `#/branches/${encodeURIComponent(b)}`,
+      })),
+      tiles: headlineTiles(mat, series, baselinePoint(series)),
+      density: {
+        total: mat.densityTotal,
+        teachers: mat.densityTeachers,
+        leadership: mat.densityLeadership,
+        support: mat.densitySupport,
+      },
+      footerHtml: [
+        footerStat("Member:rep ratio", mat.memberRepRatio),
+        footerStat("Meetings held", formatNumber(mat.meetingsHeld)),
+        repCommitteeControl(mat),
+      ].join(""),
+    })}
 
     <div class="section-title">Organising quadrant</div>
     <div class="card"><div id="mat-quadrant"></div></div>
@@ -86,6 +192,8 @@ export async function renderDetail(container, { name }) {
       </div>
     </div>
   `;
+
+  wireRepCommittee(container, mat, () => renderDetail(container, { name }));
 
   renderQuadrant(container.querySelector("#mat-quadrant"), mat.schools, {
     title: `${mat.name} organising quadrant`,

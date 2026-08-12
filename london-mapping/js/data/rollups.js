@@ -274,6 +274,23 @@ export function summariseSchools(schools) {
   };
 }
 
+// Rep committee status: the most recent RepCommittees row by effective date,
+// falling back to the manual MatFacts column for trusts nobody has reported on
+// yet. Resolved here rather than at the page, so the MAT page's toggle and the
+// dashboard's committee count can never disagree.
+//
+// Ties on effectiveFrom are broken by row order, which for an append-only table
+// means the later report wins — the same rule a person would apply.
+function resolveRepCommittee(state, trust, fallback) {
+  let latest = null;
+  for (const row of state.repCommittees || []) {
+    if (row.mat !== trust || !row.effectiveFrom) continue;
+    if (!latest || row.effectiveFrom >= latest.effectiveFrom) latest = row;
+  }
+  if (!latest) return { exists: !!fallback, since: null, reported: false };
+  return { exists: !!latest.exists, since: latest.effectiveFrom, reported: true };
+}
+
 export function buildMatLevel(schools, state) {
   const byTrust = new Map();
   for (const s of schools) {
@@ -292,6 +309,7 @@ export function buildMatLevel(schools, state) {
     const lastNote = latestBy(notes);
     const facts = state.matFacts.find((f) => f.mat === trust)
       || { isTargetMat: false, repCommitteeExists: false };
+    const committee = resolveRepCommittee(state, trust, facts.repCommitteeExists);
 
     return {
       name: trust,
@@ -315,7 +333,9 @@ export function buildMatLevel(schools, state) {
       noRepSchools,
       repCoveragePercent: safeDiv(schoolCount - noRepSchools, schoolCount),
       membersInNoRepSchools: sum(matSchools.filter((s) => s.repCount === 0), (s) => s.membersTotal),
-      repCommitteeExists: !!facts.repCommitteeExists,
+      repCommitteeExists: committee.exists,
+      repCommitteeSince: committee.since,
+      repCommitteeReported: committee.reported,
       meetingsHeld: sum(matSchools, (s) => s.meetingsLogged),
       repsRecruited: sum(matSchools, (s) => s.repsRecruitedLogged),
       noteCount: notes.length,
@@ -364,6 +384,9 @@ export function buildBranchLevel(schools, state) {
       reps,
       memberRepRatio: reps === 0 ? "No reps" : `1:${Math.round(members.total / reps)}`,
       noRepSchools: noRepSchoolsList.length,
+      // Expressed the same way as the MAT figure, so the two pages are
+      // comparable rather than one carrying a count and the other a share.
+      repCoveragePercent: safeDiv(branchSchools.length - noRepSchoolsList.length, branchSchools.length),
       membersInNoRepSchools: sum(noRepSchoolsList, (s) => s.membersTotal),
       headcountInNoRepSchools: sum(noRepSchoolsList, (s) => s.headcountTotal),
       biggestNoRepSchool: biggestNoRep

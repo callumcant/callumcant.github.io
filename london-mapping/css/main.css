@@ -350,7 +350,9 @@ table.data-table a.row-link:hover { color: var(--accent); text-decoration: under
   color: var(--accent-ink);
 }
 .btn-primary:hover { background: var(--accent-active); border-color: var(--accent-active); }
-.btn-row { display: flex; gap: var(--space-3); margin-top: var(--space-4); }
+/* Wraps: three buttons in a row push past the viewport on a narrow phone,
+   and a row of actions is the last thing that should force the page sideways. */
+.btn-row { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
 
 /* Form fields (spec §5) */
 .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4) var(--space-5); }
@@ -563,12 +565,152 @@ table.data-table.sticky-first td:first-child::after {
 }
 .stat-row:last-child { border-bottom: none; }
 .stat-row dt { color: var(--text-secondary); font-size: var(--text-xs); font-weight: var(--weight-medium); }
-.stat-row dd { margin: 0; font-size: var(--text-sm); }
+/* Website URLs have no spaces to break at, so without this they set the
+   minimum width of the whole page on a narrow screen. */
+.stat-row dd { margin: 0; font-size: var(--text-sm); overflow-wrap: anywhere; }
 @media (max-width: 560px) { .stat-row { grid-template-columns: 1fr; gap: 2px; } }
 
 .tile-spark { margin-top: var(--space-2); color: var(--accent); }
 .sparkline { display: block; width: 100%; height: 28px; }
 .tile-delta.flat { color: var(--text-muted); }
+
+/* Branch and MAT page header (js/ui/level-header.js)
+   Identity as text, three tiles that carry the measures, one bar chart, a
+   quiet footer. The old block gave thirteen tiles equal weight, so a reader
+   had to work out for themselves which of them mattered. */
+.level-identity {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+}
+.level-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.level-tiles {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin-bottom: var(--space-4);
+}
+.tile-headline { padding: var(--space-5) var(--space-6); }
+.tile-headline .tile-value { font-size: var(--text-2xl); }
+
+.level-density { max-width: 720px; }
+.level-density-title {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+}
+/* One measure across three groups, so one colour — these are magnitudes of the
+   same thing, not separate identities that would need distinguishing hues. */
+/* Keeps a legible minimum on a phone and scrolls inside the card instead of
+   scaling the labels down to seven pixels — same treatment as the quadrant. */
+.density-scroll { overflow-x: auto; }
+.density-bars { display: block; width: 100%; min-width: 420px; height: auto; }
+.dbar-label, .dbar-value, .dbar-ref-label { font-family: var(--font-ui); }
+.dbar-label { fill: var(--text-secondary); font-size: 13px; }
+.dbar-value {
+  fill: var(--text-primary);
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.dbar-track { fill: var(--gridline); opacity: 0.55; }
+.dbar-fill { fill: var(--accent-hover); }
+.dbar-ref { stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.dbar-ref-label { fill: var(--text-muted); font-size: 11px; }
+
+.level-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3) var(--space-6);
+  margin-top: var(--space-4);
+}
+.level-footer-stat {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.level-footer-label {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-secondary);
+}
+
+/* Rep committee reporter — a switch, not a read-only Yes/No. The word beside
+   it carries the state as well as the position, so it is never colour-alone. */
+.committee-control { align-items: center; }
+.committee-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+.committee-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+.committee-track {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-hover);
+  border: var(--border-width) solid var(--border);
+}
+.committee-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+}
+.committee-toggle[aria-checked="true"] .committee-track {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.committee-toggle[aria-checked="true"] .committee-thumb { transform: translateX(14px); }
+@media (prefers-reduced-motion: no-preference) {
+  .committee-track, .committee-thumb {
+    transition: background var(--duration-fast) var(--ease-standard),
+                transform var(--duration-fast) var(--ease-standard);
+  }
+}
+.committee-since { font-size: var(--text-2xs); color: var(--text-muted); }
+.committee-form {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-page);
+}
+.committee-form label { font-size: var(--text-2xs); color: var(--text-secondary); }
+/* display:inline-flex above outranks the UA [hidden] rule, so restate it —
+   otherwise the form is visible before anyone touches the switch. */
+.committee-form[hidden] { display: none; }
 
 /* Visually hidden but present for screen readers — used for the live region
    that announces match counts as you type. */

@@ -91,6 +91,7 @@ export function snapshotSeries(snapshots, urns = null) {
       byDate.set(s.snapshotDate, {
         date: s.snapshotDate, members: 0, membersTeachers: 0, membersSupport: 0,
         reps: 0, headcount: 0, headcountTeachers: 0, headcountSupport: 0, schools: 0,
+        schoolsWithRep: 0, membersUnrepresented: 0,
       });
     }
     const point = byDate.get(s.snapshotDate);
@@ -102,6 +103,11 @@ export function snapshotSeries(snapshots, urns = null) {
     point.headcountTeachers += s.headcountTeachers || 0;
     point.headcountSupport += s.headcountSupport || 0;
     point.schools += 1;
+    // Rep coverage and unrepresented membership have to be counted per school
+    // here — they can't be recovered later from the summed totals, because a
+    // total rep count says nothing about how those reps are spread.
+    if ((s.repCount || 0) > 0) point.schoolsWithRep += 1;
+    else point.membersUnrepresented += s.membersTotal || 0;
   }
   // Density per point is summed-then-divided, matching the dictionary's rule
   // that it can never be averaged from constituent parts.
@@ -110,6 +116,7 @@ export function snapshotSeries(snapshots, urns = null) {
     .map((p) => ({
       ...p,
       density: p.headcount ? p.members / p.headcount : null,
+      repCoverage: p.schools ? p.schoolsWithRep / p.schools : null,
       densityTeachers: p.headcountTeachers ? p.membersTeachers / p.headcountTeachers : null,
       densitySupport: p.headcountSupport ? p.membersSupport / p.headcountSupport : null,
     }));

@@ -1247,6 +1247,58 @@
       ]
     },
     {
+      "name": "RepCommittees",
+      "description": "Append-only log of whether a trust has a rep committee, and from when.",
+      "editedByApp": true,
+      "note": "Written by the app from a MAT's page. The current status is the most recent row by effective date; MatFacts 'Rep committee exists' is the fallback for trusts with no rows yet. NEVER edit or delete past rows — they are the only record of when a committee was in place, and that cannot be reconstructed.",
+      "fields": [
+        {
+          "key": "id",
+          "header": "ID",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        },
+        {
+          "key": "mat",
+          "header": "MAT",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "MAT name, after aliasing"
+        },
+        {
+          "key": "exists",
+          "header": "Committee exists",
+          "type": "yesno",
+          "source": "App form",
+          "inDictionary": true
+        },
+        {
+          "key": "effectiveFrom",
+          "header": "Effective from",
+          "type": "date",
+          "source": "App form",
+          "inDictionary": true,
+          "notes": "The date the committee started or stopped existing — not the date it was recorded."
+        },
+        {
+          "key": "loggedBy",
+          "header": "Logged by",
+          "type": "text",
+          "source": "App form",
+          "inDictionary": false
+        }
+      ],
+      "example": [
+        "rcm1",
+        "EXAMPLE Trust",
+        "Yes",
+        "2026-05-12",
+        "EXAMPLE Organiser"
+      ]
+    },
+    {
       "name": "Snapshots",
       "description": "Append-only weekly capture of the figures that move, so organising impact is measurable over time.",
       "editedByApp": true,

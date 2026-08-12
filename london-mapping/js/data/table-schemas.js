@@ -74,6 +74,10 @@ export const TABLE_SCHEMAS = {
   RepsRecruited: [
     "id", "date", "urn", "repName", "loggedBy"
   ],
+  // Append-only log of whether a trust has a rep committee, and from when.
+  RepCommittees: [
+    "id", "mat", "exists", "effectiveFrom", "loggedBy"
+  ],
   // Append-only weekly capture of the figures that move, so organising impact is measurable over time.
   Snapshots: [
     "snapshotDate", "urn", "membersTotal", "membersTeachers",
@@ -95,7 +99,7 @@ export const TABLE_SCHEMAS = {
 // Booleans in JS, "Yes"/"No" text in Excel so they read like the workbook's
 // other Yes/No dropdowns.
 const YES_NO_FIELDS = new Set([
-    "isProjectBranch", "isTargetMat", "repCommitteeExists"
+    "isProjectBranch", "isTargetMat", "repCommitteeExists", "exists"
 ]);
 
 // Stored as numbers, and blank must stay blank rather than becoming 0.

@@ -3,6 +3,8 @@ import { buildSchoolLevel, buildBranchLevel } from "../data/rollups.js";
 import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml } from "../ui.js";
 import { renderQuadrant } from "../ui/quadrant.js";
 import { renderSearchSelect } from "../ui/search-select.js";
+import { levelHeaderHtml, headlineTiles, footerStat } from "../ui/level-header.js";
+import { snapshotSeries, baselinePoint } from "../data/snapshots.js";
 
 export async function renderList(container) {
   const state = await loadAll();
@@ -47,25 +49,35 @@ export async function renderDetail(container, { name }) {
     .filter((n) => n.level === "Branch" && n.subject === name)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 
+  const series = snapshotSeries(state.snapshots, branch.schools.map((s) => String(s.urn)));
+
   container.innerHTML = `
     <div class="breadcrumb"><a href="#/branches">← Branches</a></div>
     <div class="topbar"><h1>${escapeHtml(branch.name)}${branch.isProjectBranch ? " ⭐ Project branch" : ""}</h1></div>
 
-    <div class="tile-grid">
-      <div class="tile"><div class="tile-label">Schools</div><div class="tile-value">${branch.schoolsCount}</div></div>
-      <div class="tile"><div class="tile-label">Workforce</div><div class="tile-value">${formatNumber(branch.headcountTotal)}</div></div>
-      <div class="tile"><div class="tile-label">Members</div><div class="tile-value">${formatNumber(branch.membersTotal)}</div></div>
-      <div class="tile"><div class="tile-label">Density</div><div class="tile-value">${formatPercent(branch.densityTotal)}</div></div>
-      <div class="tile"><div class="tile-label">Density (teachers)</div><div class="tile-value">${formatPercent(branch.densityTeachers)}</div></div>
-      <div class="tile"><div class="tile-label">Density (leadership)</div><div class="tile-value">${formatPercent(branch.densityLeadership)}</div></div>
-      <div class="tile"><div class="tile-label">Density (support)</div><div class="tile-value">${formatPercent(branch.densitySupport)}</div></div>
-      <div class="tile"><div class="tile-label">Reps</div><div class="tile-value">${branch.reps}</div></div>
-      <div class="tile"><div class="tile-label">Member:rep ratio</div><div class="tile-value">${branch.memberRepRatio}</div></div>
-      <div class="tile"><div class="tile-label">No-rep schools</div><div class="tile-value">${branch.noRepSchools}</div></div>
-      <div class="tile"><div class="tile-label">Members in no-rep schools</div><div class="tile-value">${formatNumber(branch.membersInNoRepSchools)}</div></div>
-      <div class="tile"><div class="tile-label">School meetings held</div><div class="tile-value">${branch.schoolMeetingsHeld}</div></div>
-      <div class="tile"><div class="tile-label">Reps recruited</div><div class="tile-value">${branch.repsRecruited}</div></div>
-    </div>
+    ${levelHeaderHtml({
+      identityParts: [
+        `${formatNumber(branch.schoolsCount)} schools`,
+        `${formatNumber(branch.headcountTotal)} staff`,
+        `${formatNumber(branch.membersTotal)} members`,
+      ],
+      tiles: headlineTiles(
+        { ...branch, schoolCount: branch.schoolsCount },
+        series,
+        baselinePoint(series)
+      ),
+      density: {
+        total: branch.densityTotal,
+        teachers: branch.densityTeachers,
+        leadership: branch.densityLeadership,
+        support: branch.densitySupport,
+      },
+      footerHtml: [
+        footerStat("Meetings held", formatNumber(branch.schoolMeetingsHeld)),
+        footerStat("Reps recruited", formatNumber(branch.repsRecruited)),
+        footerStat("Member:rep ratio", branch.memberRepRatio),
+      ].join(""),
+    })}
 
     ${
       branch.biggestNoRepSchool

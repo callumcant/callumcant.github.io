@@ -258,6 +258,20 @@ Append-only log of reps recruited.
 | 4 | Rep name | `repName` | text | App form | URN linked form | yes |  |
 | 5 | Logged by | `loggedBy` | text | App form | — | carried |  |
 
+## RepCommittees
+
+Append-only log of whether a trust has a rep committee, and from when.
+
+*Written by the app.*
+
+| # | Column (Excel) | Field (app) | Type | Source | Joins via | In dictionary | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | ID | `id` | text | App form | — | carried |  |
+| 2 | MAT | `mat` | text | App form | MAT name, after aliasing | yes |  |
+| 3 | Committee exists | `exists` | yesno | App form | — | yes |  |
+| 4 | Effective from | `effectiveFrom` | date | App form | — | yes | The date the committee started or stopped existing — not the date it was recorded. |
+| 5 | Logged by | `loggedBy` | text | App form | — | carried |  |
+
 ## Snapshots
 
 Append-only weekly capture of the figures that move, so organising impact is measurable over time.

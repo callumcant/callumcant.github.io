@@ -103,6 +103,7 @@ const TABLE_TO_STATE_KEY = {
   MatFacts: "matFacts",
   Meetings: "meetings",
   RepsRecruited: "repsRecruited",
+  RepCommittees: "repCommittees",
   Snapshots: "snapshots",
   SchoolGeo: "schoolGeo",
 };

@@ -479,6 +479,16 @@ export const repsRecruited = [
   {"id": "r5", "date": "2026-08-01", "urn": 200036, "repName": "Ines Carvalho", "loggedBy": "Jide K."},
 ];
 
+// Two trusts have reported a committee through the app; the rest fall back to
+// the MatFacts column. Orchard Hill is the case worth having in sample data:
+// MatFacts says it has a committee, but a later report says it stopped, so the
+// page has to show the reported answer rather than the static one.
+export const repCommittees = [
+  {"id": "rcm1", "mat": "Oscar Romero", "exists": true, "effectiveFrom": "2026-05-12", "loggedBy": "Amara O."},
+  {"id": "rcm2", "mat": "Orchard Hill", "exists": true, "effectiveFrom": "2026-03-02", "loggedBy": "Amara O."},
+  {"id": "rcm3", "mat": "Orchard Hill", "exists": false, "effectiveFrom": "2026-09-14", "loggedBy": "Amara O."},
+];
+
 // No decisions recorded yet, so every seeded anomaly shows on the Anomalies
 // page. Resolving one in preview appends here in memory.
 export const reconciliations = [];
