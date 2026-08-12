@@ -786,6 +786,17 @@ table.data-table.sticky-first td:first-child::after {
   margin-top: calc(var(--space-3) * -1 + 2px);
 }
 
+/* Shown when a table is capped (see opts.maxRows in ui.js). Sits inside the
+   table's own container so it survives the redraw on every sort, and stays
+   inside the card rather than floating under it. */
+.table-cap-note {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  margin: var(--space-2) 0 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
 /* Filter chip — shown when a list arrives pre-filtered from elsewhere, so a
    partial list is never mistaken for the whole one. */
 .filter-chip-row { margin-bottom: var(--space-3); }

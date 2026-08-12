@@ -64,6 +64,25 @@ export function dedupeSnapshots(snapshots) {
   return out;
 }
 
+// The dashboard draws five series from the same array — one for the chosen
+// scope, four more for the two comparisons — and each one used to re-scan every
+// snapshot row to de-duplicate it. That is the same answer five times over: at
+// London scale it was most of the page's work.
+//
+// Keyed on the array's identity AND its length, because appendSnapshotRows
+// pushes onto the very same array a capture ran against. Identity alone would
+// keep serving a pre-capture answer for the rest of the page's life.
+let dedupeCache = { source: null, length: -1, result: null };
+
+function dedupedOnce(snapshots) {
+  if (dedupeCache.source === snapshots && dedupeCache.length === snapshots.length) {
+    return dedupeCache.result;
+  }
+  const result = dedupeSnapshots(snapshots);
+  dedupeCache = { source: snapshots, length: snapshots.length, result };
+  return result;
+}
+
 export function buildSnapshotRows(schools, snapshotDate = todayIso()) {
   return schools.map((s) => ({
     snapshotDate,
@@ -85,7 +104,7 @@ export function buildSnapshotRows(schools, snapshotDate = todayIso()) {
 export function snapshotSeries(snapshots, urns = null) {
   const urnFilter = urns ? new Set(urns.map(String)) : null;
   const byDate = new Map();
-  for (const s of dedupeSnapshots(snapshots)) {
+  for (const s of dedupedOnce(snapshots)) {
     if (urnFilter && !urnFilter.has(String(s.urn))) continue;
     if (!byDate.has(s.snapshotDate)) {
       byDate.set(s.snapshotDate, {
@@ -151,11 +170,47 @@ export function pointWeeksBefore(series, weeks = 4) {
   return found;
 }
 
+// The app loads a recent window of snapshots plus the baseline week, not the
+// whole history (see readSnapshotWindow in graph-client.js), so a series can
+// arrive with a hole in the middle: one point at the baseline, then a year's
+// silence, then twelve weekly points.
+//
+// This returns the trailing run of points that really are consecutive weekly
+// captures. Anything drawn on an evenly-spaced axis — the sparklines — has to
+// use this rather than the raw series, or the baseline would be plotted one
+// step away from a reading taken nine months later and the line would describe
+// a change that never happened.
+const MAX_CADENCE_GAP_DAYS = 10; // a weekly cadence, with slack for a late capture
+
+export function recentRun(series, maxGapDays = MAX_CADENCE_GAP_DAYS) {
+  if (series.length === 0) return [];
+  let start = series.length - 1;
+  for (let i = series.length - 1; i > 0; i--) {
+    const gap =
+      (new Date(`${series[i].date}T00:00:00Z`).getTime()
+        - new Date(`${series[i - 1].date}T00:00:00Z`).getTime()) / MS_PER_DAY;
+    if (gap > maxGapDays) break;
+    start = i - 1;
+  }
+  return series.slice(start);
+}
+
 // Distinct capture dates and the span they cover, for the cadence line that
 // tells a reader this is a considered position rather than a live feed.
+//
+// `count`/`first`/`last` describe the unbroken recent run, because that is what
+// the page can honestly claim to be showing. `earlier` carries the detached
+// baseline point when there is one, so the line can mention it separately
+// instead of implying a continuous run that was never loaded.
 export function seriesCadence(series) {
-  if (series.length === 0) return { count: 0, first: null, last: null };
-  return { count: series.length, first: series[0].date, last: series[series.length - 1].date };
+  if (series.length === 0) return { count: 0, first: null, last: null, earlier: null };
+  const run = recentRun(series);
+  return {
+    count: run.length,
+    first: run[0].date,
+    last: run[run.length - 1].date,
+    earlier: run.length < series.length ? series[0].date : null,
+  };
 }
 
 let captureAttempted = false;

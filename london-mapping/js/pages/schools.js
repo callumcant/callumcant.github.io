@@ -10,6 +10,14 @@ import { quadrantBadge } from "../ui/quadrant.js";
 
 const PREFS_KEY = "london-mapping:schools:columns";
 
+// How many rows reach the DOM at once, and how long typing settles before the
+// table redraws. Both exist for the same reason: this is the only table that
+// can hold every school in London, and laying out a few thousand rows takes
+// long enough (~2s at 3,000) that an undebounced redraw per keystroke makes the
+// search box unusable. The full filtered set still goes to Export CSV.
+const MAX_TABLE_ROWS = 200;
+const SEARCH_REDRAW_MS = 150;
+
 // The latest note's title, linked to the filtered notes view, with the count
 // alongside when there's more than one so the extra notes aren't hidden by
 // showing only the newest. Exported because it was shared with the branch and
@@ -302,14 +310,29 @@ export async function renderList(container, params = {}) {
       visibleKeys,
       stickyFirst: true,
       sortState,
+      maxRows: MAX_TABLE_ROWS,
     });
+    // The full match count, not the capped one — renderDataTable adds its own
+    // "showing the first N" line, and the two read as a pair.
     countEl.textContent = `${rows.length} of ${schools.length} schools · ${visibleKeys.size} columns`;
   }
 
+  let drawTimer = null;
+  function drawTableDebounced() {
+    clearTimeout(drawTimer);
+    // Navigating away between the last keystroke and the timer leaves this
+    // firing against a table the router has already replaced. Harmless, but
+    // there's no point rendering a few hundred rows into a detached node.
+    drawTimer = setTimeout(() => {
+      if (tableEl.isConnected) drawTable();
+    }, SEARCH_REDRAW_MS);
+  }
+
   // Typing debounces; picking from a dropdown is a discrete act and lands at
-  // once.
+  // once. The label and the URL are cheap enough to keep up per keystroke; only
+  // the table redraw waits for typing to settle.
   searchEl.addEventListener("input", () => {
-    drawTable();
+    drawTableDebounced();
     updateToggleLabel();
     syncUrlDebounced();
   });

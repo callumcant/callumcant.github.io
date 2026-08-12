@@ -71,6 +71,14 @@ export function barCell(value, formatted) {
 // matters once a table is wide enough that the row's identity scrolls away.
 // opts.sortState, if passed, is an object the caller owns and this function
 // mutates — see the note below.
+//
+// opts.maxRows caps how many rows are actually put in the DOM. Opt-in, because
+// most tables here are a single trust's or borough's schools and never come
+// close: only the all-schools view needs it. It matters at London scale —
+// laying out 3,000 rows costs about two seconds, and the Schools page redraws
+// on every keystroke, so an uncapped table makes typing unusable. Nothing is
+// unreachable when it bites: the caller's CSV export still receives the full
+// filtered set, which is the escape hatch the footer line points at.
 export function renderDataTable(container, allColumns, rows, opts = {}) {
   const columns = opts.visibleKeys
     ? allColumns.filter((c) => opts.visibleKeys.has(c.key))
@@ -114,7 +122,15 @@ export function renderDataTable(container, allColumns, rows, opts = {}) {
   }
 
   function draw() {
-    const rowsHtml = sortedRows()
+    // Sort first, then cap. The other way round would sort only the rows that
+    // happened to survive the cap, so "top 200 by density" would silently mean
+    // "the first 200 rows, sorted" — a plausible-looking wrong answer.
+    const sorted = sortedRows();
+    const shown = opts.maxRows && sorted.length > opts.maxRows
+      ? sorted.slice(0, opts.maxRows)
+      : sorted;
+
+    const rowsHtml = shown
       .map(
         (row) => `<tr>${columns
           .map((c) => {
@@ -152,7 +168,12 @@ export function renderDataTable(container, allColumns, rows, opts = {}) {
             ${rowsHtml || `<tr><td colspan="${columns.length}"><div class="empty-state">No rows match.</div></td></tr>`}
           </tbody>
         </table>
-      </div>`;
+      </div>
+      ${shown.length < sorted.length
+        ? `<p class="table-cap-note">Showing the first ${formatNumber(shown.length)} of
+             ${formatNumber(sorted.length)} matches — narrow the filters, or use
+             Export CSV to get all of them.</p>`
+        : ""}`;
 
     container.querySelectorAll("th[data-key]").forEach((th) => {
       th.addEventListener("click", () => {

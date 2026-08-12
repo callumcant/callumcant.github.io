@@ -25,7 +25,7 @@ import {
 } from "../data/rollups.js";
 import {
   snapshotSeries, latestSnapshotDate, daysSince, baselinePoint, pointWeeksBefore,
-  seriesCadence, BASELINE_DATE,
+  seriesCadence, recentRun, BASELINE_DATE,
 } from "../data/snapshots.js";
 import { detectExceptions } from "../data/exceptions.js";
 import {
@@ -180,7 +180,10 @@ function resolveScope(scopeValue, { branches, mats, disputes }) {
 function outcomeTile(entry, series, base, recent) {
   const latest = series.length ? series[series.length - 1] : null;
   const canTrend = entry.field && latest != null;
-  const values = canTrend ? series.map((p) => p[entry.field]) : [];
+  // The sparkline spaces its points evenly, so it can only show the unbroken
+  // recent run. The deltas below are unaffected: each compares two named dates
+  // directly and doesn't care what sits between them.
+  const values = canTrend ? recentRun(series).map((p) => p[entry.field]) : [];
 
   const sinceBaseline = canTrend && base
     ? formatDelta(base[entry.field], latest[entry.field], { percent: entry.percent })
@@ -267,7 +270,7 @@ function comparePanel(setLabel, series, field, percent) {
       ${delta
         ? `<div class="tile-delta ${delta.direction}">${escapeHtml(delta.text)} since ${escapeHtml(shortDate(BASELINE_DATE))}</div>`
         : `<div class="tile-delta-minor flat">No baseline comparison yet</div>`}
-      <div class="tile-spark">${sparkline(series.map((p) => p[field]), { label: `${setLabel} ${field}` })}</div>
+      <div class="tile-spark">${sparkline(recentRun(series).map((p) => p[field]), { label: `${setLabel} ${field}` })}</div>
     </div>`;
 }
 
@@ -403,10 +406,17 @@ export async function render(container) {
           .join("")}
       </optgroup>`;
 
+    // When only a recent window is loaded, the line says so rather than
+    // counting the window's captures "since" the baseline — that would read as
+    // a full year of weekly history when twelve weeks of it is what's here.
     const cadenceLine = cadence.count === 0
       ? "No snapshots captured yet — figures below are current values with no history behind them."
-      : `As at ${formatDate(cadence.last)} · ${cadence.count} weekly `
-        + `${cadence.count === 1 ? "snapshot" : "snapshots"} since ${formatDate(cadence.first)}`;
+      : cadence.earlier
+        ? `As at ${formatDate(cadence.last)} · last ${cadence.count} weekly `
+          + `${cadence.count === 1 ? "snapshot" : "snapshots"} · `
+          + `baseline ${formatDate(cadence.earlier)}`
+        : `As at ${formatDate(cadence.last)} · ${cadence.count} weekly `
+          + `${cadence.count === 1 ? "snapshot" : "snapshots"} since ${formatDate(cadence.first)}`;
 
     container.innerHTML = `
       <div class="topbar">
