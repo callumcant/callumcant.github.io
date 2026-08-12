@@ -45,12 +45,15 @@ explanation either.
 london-mapping/
   index.html            single page; everything else is an ES module
   js/
-    app.js              boot, nav, route registration
-    router.js           hash router; params are decodeURIComponent'd
+    app.js              boot, route registration, the whole app shell — grouped
+                        sidebar, header, universal search, mobile nav overlay
+    router.js           hash router; params are decodeURIComponent'd, and the
+                        query string arrives as params.query
     config.js           the 3 go-live values; preview mode is INFERRED from them
     auth.js             MSAL PKCE sign-in
     ui.js               shared helpers: escapeHtml, format*, renderDataTable,
-                        sparkline, formatDelta, openMicroForm, showToast
+                        sparkline, formatDelta, openMicroForm, showToast,
+                        barCell, csvFilename, downloadCsv, column prefs
     ui/                 larger shared components (quadrant, search-select,
                         level-header)
     data/
@@ -189,16 +192,31 @@ flag to flip. `workbookUrl` is already set. Outstanding:
   designed guess. When the real export arrives it's a `dictionary.json` edit
   plus regeneration.
 
-## Git
+## Git and deploying
 
-Work on `claude/london-mapping-ux-edits-16uadk` and push there.
+**`claude/organizers-campaign-dashboard-web-a9h44v` is the default branch, and
+GitHub Pages builds the live site from it.** Pushing to a feature branch changes
+nothing that anyone can see. Work on a feature branch, then merge into that
+branch to deploy. (The default branch being a `claude/...` feature branch is
+odd but deliberate-by-accident; renaming it to `main` is unfinished business.)
 
 **The remote deliberately points at the old repo name**
 (`callumcant/username.github.io`). The repo was renamed to
 `callumcant.github.io`; GitHub redirects, so pushes work. Pointing it at the new
 name fails the sandbox's repository allow-list. Leave it.
 
-Don't open a pull request unless asked.
+Don't open a pull request unless asked. Don't merge to the default branch
+without asking either — that publishes to a site the team uses.
+
+**After deploying, hard-refresh before believing a bug report.** The app ships
+unbundled ES modules, so every `.js` is a separate file with its own cache
+entry, and Pages serves them with a ~10-minute TTL. For a few minutes after a
+deploy a browser can hold a *mix* of old and new modules — a combination that
+was never tested together and can fail in ways neither version does alone. It
+self-heals when the cache expires. This has already produced one confusing bug
+report ("No match for ''" stuck in the header search: an old `search-select.js`
+against a new `app.js`). Calls across module boundaries that are new in a
+release are worth writing defensively (`handle.setItems?.(…)`) for that window.
 
 ## Known gaps
 

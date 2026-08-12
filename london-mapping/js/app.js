@@ -215,10 +215,15 @@ function initGlobalSearch(app) {
   function ensureIndex() {
     if (building) return building;
     building = buildItems()
-      .then((items) => handle.setItems(items))
+      .then((items) => handle.setItems?.(items))
       .catch((err) => {
+        // Optional-call on both paths. This site ships unbundled ES modules,
+        // so each file is cached separately and a browser can briefly hold a
+        // mix of old and new ones after a deploy — an older search-select.js
+        // has no setItems, and calling it blind threw here and again in this
+        // handler, as an unhandled rejection.
         console.error("[search] could not build the search index", err);
-        handle.setItems([]);
+        handle.setItems?.([]);
       });
     return building;
   }
