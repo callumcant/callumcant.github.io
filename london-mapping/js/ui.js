@@ -52,13 +52,25 @@ export function livePill(live) {
     : `<span class="badge">Closed</span>`;
 }
 
+// A proportion rendered as a bar behind the value. Used ONLY for density and
+// turnout — the two columns where "how big is this out of 100%" is the whole
+// question, and where scanning a column for the high ones is the actual task.
+// Everywhere else a bar would be decoration competing with the number.
+export function barCell(value, formatted) {
+  if (value == null || Number.isNaN(value)) return formatted;
+  const pct = Math.max(0, Math.min(1, value)) * 100;
+  return `<span class="cell-bar" style="width:${pct.toFixed(1)}%"></span><span class="cell-bar-value">${formatted}</span>`;
+}
+
 // Renders a sortable table into `container`. `columns` is
-// [{ key, label, num?, render?(row) }]. Sorting compares `row[key]` unless
-// a column defines `sortValue(row)`.
+// [{ key, label, num?, wrap?, cellClass?, render?(row) }]. Sorting compares
+// `row[key]` unless a column defines `sortValue(row)`.
 //
 // opts.visibleKeys (a Set) narrows which columns render; omit it to show all.
 // opts.stickyFirst pins the first column while scrolling horizontally, which
 // matters once a table is wide enough that the row's identity scrolls away.
+// opts.sortState, if passed, is an object the caller owns and this function
+// mutates — see the note below.
 export function renderDataTable(container, allColumns, rows, opts = {}) {
   const columns = opts.visibleKeys
     ? allColumns.filter((c) => opts.visibleKeys.has(c.key))
@@ -68,11 +80,18 @@ export function renderDataTable(container, allColumns, rows, opts = {}) {
     return;
   }
 
-  let sortKey = opts.defaultSort || columns[0].key;
-  let sortDir = opts.defaultDir || "asc";
-  if (!columns.some((c) => c.key === sortKey)) sortKey = columns[0].key;
+  // Sort lives in a caller-owned object when one is passed. Pages re-call this
+  // function on every filter keystroke, so holding sort in a local closure
+  // silently threw away the sort the user had chosen the moment they typed.
+  const sortState = opts.sortState || {};
+  if (!sortState.key) sortState.key = opts.defaultSort || columns[0].key;
+  if (!sortState.dir) sortState.dir = opts.defaultDir || "asc";
+  // A column can disappear via the picker while it's the active sort.
+  if (!columns.some((c) => c.key === sortState.key)) sortState.key = columns[0].key;
 
   function sortedRows() {
+    const sortKey = sortState.key;
+    const sortDir = sortState.dir;
     const col = columns.find((c) => c.key === sortKey);
     const valueOf = col?.sortValue || ((row) => row[sortKey]);
     return [...rows].sort((a, b) => {
@@ -86,11 +105,29 @@ export function renderDataTable(container, allColumns, rows, opts = {}) {
     });
   }
 
+  // The plain-text behind a cell, for the truncation tooltip. Deliberately not
+  // c.render() — that returns markup, and a title attribute full of tags helps
+  // nobody. c.csv() is the column's own "this as text" answer where it has one.
+  function cellTitle(c, row) {
+    const raw = c.csv ? c.csv(row) : row[c.key];
+    return raw == null ? "" : String(raw);
+  }
+
   function draw() {
     const rowsHtml = sortedRows()
       .map(
         (row) => `<tr>${columns
-          .map((c) => `<td class="${c.num ? "num" : ""} ${c.wrap ? "wrap" : ""}">${c.render ? c.render(row) : escapeHtml(row[c.key])}</td>`)
+          .map((c) => {
+            // Numbers and dates keep nowrap; everything else is a text cell,
+            // which is width-capped and ellipsised rather than allowed to shove
+            // the rest of the table off-screen.
+            const cls = [c.num ? "num" : "text", c.wrap ? "wrap" : "", c.cellClass || ""]
+              .filter(Boolean)
+              .join(" ");
+            const text = c.num || c.wrap ? "" : cellTitle(c, row);
+            const title = text ? ` title="${escapeHtml(text)}"` : "";
+            return `<td class="${cls}"${title}>${c.render ? c.render(row) : escapeHtml(row[c.key])}</td>`;
+          })
           .join("")}</tr>`
       )
       .join("");
@@ -102,8 +139,10 @@ export function renderDataTable(container, allColumns, rows, opts = {}) {
             <tr>
               ${columns
                 .map(
-                  (c) => `<th class="${c.num ? "num" : ""}" data-key="${c.key}">${escapeHtml(c.label)}${
-                    sortKey === c.key ? `<span class="sort-arrow">${sortDir === "asc" ? "▲" : "▼"}</span>` : ""
+                  (c) => `<th class="${c.num ? "num" : ""}" data-key="${c.key}" aria-sort="${
+                    sortState.key === c.key ? (sortState.dir === "asc" ? "ascending" : "descending") : "none"
+                  }">${escapeHtml(c.label)}${
+                    sortState.key === c.key ? `<span class="sort-arrow">${sortState.dir === "asc" ? "▲" : "▼"}</span>` : ""
                   }</th>`
                 )
                 .join("")}
@@ -118,11 +157,11 @@ export function renderDataTable(container, allColumns, rows, opts = {}) {
     container.querySelectorAll("th[data-key]").forEach((th) => {
       th.addEventListener("click", () => {
         const key = th.dataset.key;
-        if (sortKey === key) {
-          sortDir = sortDir === "asc" ? "desc" : "asc";
+        if (sortState.key === key) {
+          sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
         } else {
-          sortKey = key;
-          sortDir = "asc";
+          sortState.key = key;
+          sortState.dir = "asc";
         }
         draw();
       });
@@ -159,81 +198,134 @@ export function saveColumnPrefs(storageKey, visibleKeys) {
   }
 }
 
+// One document-level listener for the whole module, registered lazily, closing
+// whichever popover is currently open. Previously every redraw of the control
+// added another listener that was never removed, so they piled up for the life
+// of the page.
+let openPopoverCloser = null;
+let popoverDismissWired = false;
+
+function wirePopoverDismiss() {
+  if (popoverDismissWired) return;
+  popoverDismissWired = true;
+  document.addEventListener("click", () => {
+    if (openPopoverCloser) openPopoverCloser();
+  });
+}
+
 // Renders the "Columns" control: preset buttons plus a toggle popover.
 // `groups` is [{ label, keys: [...] }] purely for laying the checkboxes out.
+//
+// Returns { sync(keys) } so a caller that changes the visible set by some other
+// route (a preset, a URL parameter) can bring the control back in step. The
+// markup is built ONCE: ticking a checkbox used to re-render the whole control,
+// which reset the popover to closed, so choosing five columns meant opening the
+// popover five times.
 export function renderColumnControls(container, { columns, groups, presets, visibleKeys, onChange }) {
   const lockedKeys = new Set(columns.filter((c) => c.always).map((c) => c.key));
+  let current = new Set(visibleKeys);
 
-  function draw() {
-    container.innerHTML = `
-      <div class="column-controls">
-        <div class="preset-row">
-          ${Object.keys(presets)
-            .map((name) => `<button type="button" class="chip" data-preset="${escapeHtml(name)}">${escapeHtml(presets[name].label)}</button>`)
+  container.innerHTML = `
+    <div class="column-controls">
+      <div class="preset-row">
+        ${Object.keys(presets)
+          .map((name) => `<button type="button" class="chip" data-preset="${escapeHtml(name)}">${escapeHtml(presets[name].label)}</button>`)
+          .join("")}
+      </div>
+      <div class="column-picker">
+        <button type="button" class="btn btn-small column-toggle" aria-expanded="false">
+          Columns (${current.size})
+        </button>
+        <div class="column-popover" hidden>
+          ${groups
+            .map(
+              (g) => `
+            <div class="column-group">
+              <div class="column-group-label">${escapeHtml(g.label)}</div>
+              ${g.keys
+                .map((key) => {
+                  const col = columns.find((c) => c.key === key);
+                  if (!col) return "";
+                  const locked = lockedKeys.has(key);
+                  return `<label class="${locked ? "is-locked" : ""}">
+                    <input type="checkbox" data-col="${escapeHtml(key)}"
+                      ${current.has(key) ? "checked" : ""} ${locked ? "disabled" : ""} />
+                    ${escapeHtml(col.label)}
+                  </label>`;
+                })
+                .join("")}
+            </div>`
+            )
             .join("")}
         </div>
-        <div class="column-picker">
-          <button type="button" class="btn btn-small" id="column-toggle" aria-expanded="false">
-            Columns (${visibleKeys.size})
-          </button>
-          <div class="column-popover" hidden>
-            ${groups
-              .map(
-                (g) => `
-              <div class="column-group">
-                <div class="column-group-label">${escapeHtml(g.label)}</div>
-                ${g.keys
-                  .map((key) => {
-                    const col = columns.find((c) => c.key === key);
-                    if (!col) return "";
-                    const locked = lockedKeys.has(key);
-                    return `<label class="${locked ? "is-locked" : ""}">
-                      <input type="checkbox" data-col="${escapeHtml(key)}"
-                        ${visibleKeys.has(key) ? "checked" : ""} ${locked ? "disabled" : ""} />
-                      ${escapeHtml(col.label)}
-                    </label>`;
-                  })
-                  .join("")}
-              </div>`
-              )
-              .join("")}
-          </div>
-        </div>
-      </div>`;
+      </div>
+    </div>`;
 
-    container.querySelectorAll("[data-preset]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const preset = presets[btn.dataset.preset];
-        const keys = preset.keys === null ? columns.map((c) => c.key) : preset.keys;
-        onChange(new Set([...lockedKeys, ...keys]));
-      });
-    });
+  const toggle = container.querySelector(".column-toggle");
+  const popover = container.querySelector(".column-popover");
 
-    const toggle = container.querySelector("#column-toggle");
-    const popover = container.querySelector(".column-popover");
-    toggle.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const open = !popover.hidden;
-      popover.hidden = open;
-      toggle.setAttribute("aria-expanded", String(!open));
-    });
-    popover.addEventListener("click", (e) => e.stopPropagation());
-    document.addEventListener("click", () => {
-      popover.hidden = true;
-      toggle.setAttribute("aria-expanded", "false");
-    });
+  function closePopover() {
+    popover.hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
+    if (openPopoverCloser === closePopover) openPopoverCloser = null;
+  }
 
+  // Reflects `current` back into the control without rebuilding it, so the
+  // popover keeps its scroll position and stays open across ticks.
+  function syncUi() {
+    toggle.textContent = `Columns (${current.size})`;
     container.querySelectorAll("[data-col]").forEach((cb) => {
-      cb.addEventListener("change", () => {
-        const next = new Set(visibleKeys);
-        if (cb.checked) next.add(cb.dataset.col);
-        else next.delete(cb.dataset.col);
-        onChange(next);
-      });
+      cb.checked = current.has(cb.dataset.col);
     });
   }
 
-  draw();
+  container.querySelectorAll("[data-preset]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const preset = presets[btn.dataset.preset];
+      const keys = preset.keys === null ? columns.map((c) => c.key) : preset.keys;
+      current = new Set([...lockedKeys, ...keys]);
+      syncUi();
+      onChange(current);
+    });
+  });
+
+  wirePopoverDismiss();
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (popover.hidden) {
+      if (openPopoverCloser && openPopoverCloser !== closePopover) openPopoverCloser();
+      popover.hidden = false;
+      toggle.setAttribute("aria-expanded", "true");
+      openPopoverCloser = closePopover;
+    } else {
+      closePopover();
+    }
+  });
+  popover.addEventListener("click", (e) => e.stopPropagation());
+  popover.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closePopover();
+      toggle.focus();
+    }
+  });
+
+  container.querySelectorAll("[data-col]").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      const next = new Set(current);
+      if (cb.checked) next.add(cb.dataset.col);
+      else next.delete(cb.dataset.col);
+      current = next;
+      syncUi();
+      onChange(current);
+    });
+  });
+
+  return {
+    sync(keys) {
+      current = new Set(keys);
+      syncUi();
+    },
+  };
 }
 
 // --- CSV export ------------------------------------------------------------
@@ -245,6 +337,19 @@ function csvCell(value) {
   if (value == null) return "";
   const s = String(value);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Scoped, dated filenames: csvFilename("Wandsworth", "schools") gives
+// "wandsworth-schools-2026-08-12.csv". Downloads land in one folder and stay
+// there, so "schools.csv" three times over tells you nothing about which
+// borough you exported or when.
+export function csvFilename(...parts) {
+  const slug = parts
+    .filter(Boolean)
+    .map((p) => String(p).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""))
+    .filter(Boolean)
+    .join("-");
+  return `${slug || "export"}-${new Date().toISOString().slice(0, 10)}.csv`;
 }
 
 export function downloadCsv(filename, columns, rows) {

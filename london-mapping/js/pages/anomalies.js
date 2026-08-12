@@ -8,7 +8,7 @@
 import { loadAll, getState, addReconciliation } from "../data/store.js";
 import { buildSchoolLevel } from "../data/rollups.js";
 import { detectAnomalies, ANOMALY_TYPES } from "../data/reconcile.js";
-import { escapeHtml, formatNumber, showToast, openMicroForm, formatDate } from "../ui.js";
+import { escapeHtml, formatNumber, showToast, openMicroForm, formatDate, downloadCsv, csvFilename } from "../ui.js";
 import { getSignedInName } from "../auth.js";
 
 const ACTION_LABELS = {
@@ -36,6 +36,10 @@ export async function render(container) {
       <h1>Anomalies</h1>
       <div class="as-of">${all.length} outstanding · ${decided} previously resolved</div>
     </div>
+    <div class="btn-row" style="margin-top:0;">
+      <button class="btn btn-small" id="export-anomalies"${all.length ? "" : " disabled"}>Export anomalies</button>
+      <button class="btn btn-small" id="export-decisions"${decided ? "" : " disabled"}>Export decisions</button>
+    </div>
 
     <div class="card">
       <p style="margin-top:0;">Schools and workplace codes that don't line up across the data
@@ -49,6 +53,34 @@ export async function render(container) {
       ? `<div class="card"><div class="empty-state">Nothing outstanding — every source lines up.</div></div>`
       : [...byType.entries()].map(([type, items]) => renderGroup(type, items)).join("")}
   `;
+
+  // Exports EVERY anomaly, not the 50 per group the page draws. That cap is a
+  // rendering limit, not a filter — anything past it is currently unreachable
+  // in the UI, which is an argument for the export rather than against it.
+  container.querySelector("#export-anomalies").addEventListener("click", () => {
+    const columns = [
+      { key: "type", label: "Anomaly type", csv: (a) => ANOMALY_TYPES[a.type]?.label || a.type },
+      { key: "key", label: "Key (URN or workplace code)" },
+      { key: "label", label: "Subject" },
+      { key: "detail", label: "Detail" },
+    ];
+    downloadCsv(csvFilename("anomalies"), columns, all);
+  });
+
+  // The append-only audit trail. It has no page of its own — once a decision is
+  // made the item leaves this list — so this is the only way to read it back.
+  container.querySelector("#export-decisions").addEventListener("click", () => {
+    const columns = [
+      { key: "decidedDate", label: "Decided date" },
+      { key: "anomalyType", label: "Anomaly type" },
+      { key: "key", label: "Key (URN or workplace code)" },
+      { key: "action", label: "Action" },
+      { key: "targetKey", label: "Target key" },
+      { key: "note", label: "Note" },
+      { key: "decidedBy", label: "Decided by" },
+    ];
+    downloadCsv(csvFilename("reconciliation-decisions"), columns, state.reconciliations || []);
+  });
 
   container.querySelectorAll("[data-resolve]").forEach((btn) => {
     btn.addEventListener("click", () => {

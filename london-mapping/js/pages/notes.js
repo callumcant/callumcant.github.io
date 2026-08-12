@@ -1,7 +1,7 @@
 import { loadAll, getState, addFieldNote } from "../data/store.js";
 import { buildSchoolLevel } from "../data/rollups.js";
 import { FIELD_NOTE_LEVELS } from "../config.js";
-import { formatDate, escapeHtml } from "../ui.js";
+import { formatDate, escapeHtml, downloadCsv, csvFilename } from "../ui.js";
 import { navigate } from "../router.js";
 
 function subjectLabel(note, schoolsByUrn) {
@@ -57,6 +57,7 @@ export async function renderList(container, params = {}) {
     <div class="card">
       <div class="notes-toolbar">
         <span class="result-count" id="note-count"></span>
+        <button type="button" class="btn btn-small" id="export-notes">Export CSV</button>
         <button type="button" class="btn btn-small" id="expand-all">Expand all</button>
       </div>
       <div id="notes-list"></div>
@@ -94,14 +95,18 @@ export async function renderList(container, params = {}) {
       </details>`;
   }
 
-  function applyFilters() {
+  function currentNotes() {
     const q = searchEl.value.trim().toLowerCase();
-    const filtered = notes.filter((n) => {
+    return notes.filter((n) => {
       if (pinnedSubject && String(n.subject) !== pinnedSubject) return false;
       if (levelEl.value && n.level !== levelEl.value) return false;
       if (q && !`${n.title} ${n.note} ${subjectLabel(n, schoolsByUrn)}`.toLowerCase().includes(q)) return false;
       return true;
     });
+  }
+
+  function applyFilters() {
+    const filtered = currentNotes();
     listEl.innerHTML = filtered.length
       ? filtered.map(noteHtml).join("")
       : `<div class="empty-state">No notes match.</div>`;
@@ -109,6 +114,23 @@ export async function renderList(container, params = {}) {
   }
 
   [searchEl, levelEl].forEach((el) => el.addEventListener("input", applyFilters));
+
+  // The list is <details> blocks rather than a table, so there are no visible
+  // columns to mirror — these are the fields a note actually carries, with the
+  // subject resolved to a name rather than left as a bare URN.
+  const NOTE_COLUMNS = [
+    { key: "date", label: "Date" },
+    { key: "level", label: "Level" },
+    { key: "subject", label: "Subject", csv: (n) => subjectLabel(n, schoolsByUrn) },
+    { key: "title", label: "Title" },
+    { key: "note", label: "Note" },
+    { key: "author", label: "Author" },
+  ];
+
+  container.querySelector("#export-notes").addEventListener("click", () => {
+    const scope = pinnedLabel || levelEl.value || "";
+    downloadCsv(csvFilename(scope, "field-notes"), NOTE_COLUMNS, currentNotes());
+  });
 
   container.querySelector("#expand-all")?.addEventListener("click", (e) => {
     const anyClosed = listEl.querySelector("details:not([open])");

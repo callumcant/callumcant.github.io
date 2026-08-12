@@ -66,6 +66,7 @@
   --surface-card:#FFFFFF;      /* DS surface-card */
   --surface-sunken:#EEF1F2;    /* DS grey-100 — table headers, inset wells */
   --surface-hover:#E4E8EA;     /* EXTENSION: interpolated grey-100→200, for row/item hover */
+  --surface-zebra:#FAFBFB;     /* EXTENSION: ~2% off card, for wide-table row tracking */
 
   --text-primary:#333F48;      /* DS neu-slate */
   --text-secondary:#565D63;    /* DS grey-600 */
@@ -102,6 +103,7 @@
     --surface-card:#262B2F;
     --surface-sunken:#14171A;
     --surface-hover:#2F353A;
+    --surface-zebra:#2A2F34;
 
     --text-primary:#F2F4F5;
     --text-secondary:#9EA6AB;
@@ -138,6 +140,7 @@
   --surface-card:#262B2F;
   --surface-sunken:#14171A;
   --surface-hover:#2F353A;
+  --surface-zebra:#2A2F34;
 
   --text-primary:#F2F4F5;
   --text-secondary:#9EA6AB;

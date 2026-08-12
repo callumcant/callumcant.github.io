@@ -157,6 +157,22 @@ blocked-CDN fallback; both are expected locally.
 - Reporters (meetings, reps recruited, rep committee, notes, disputes) work in
   preview mode, writing to in-memory state that doesn't persist. Don't disable
   them in preview; nothing else is disabled.
+- **Table sort lives in a caller-owned `sortState` object**, passed to
+  `renderDataTable`. Pages re-render the table on every filter keystroke, so a
+  sort held in the function's own closure gets thrown away as soon as anyone
+  types. Same for the column picker: `renderColumnControls` builds its markup
+  once and exposes `sync()` — don't re-call it from its own `onChange`, or the
+  popover snaps shut on every checkbox tick.
+- **Zebra striping must be declared before the `tr:hover` rule.** Identical
+  specificity, so source order is what decides, and hover has to win. A table
+  with `sticky-first` also needs the stripe restated on `td:first-child`, which
+  paints its own opaque background.
+- Filter state on the Schools page is written to the hash with
+  `history.replaceState`. Never assign `location.hash` for this — that fires
+  `hashchange`, and the router rebuilds the page and scrolls to top
+  mid-keystroke.
+- CSV filenames come from `csvFilename(scope, kind)`, which slugifies and dates
+  them. Don't hand-build a filename.
 
 ## Going live
 
@@ -175,7 +191,7 @@ flag to flip. `workbookUrl` is already set. Outstanding:
 
 ## Git
 
-Work on `claude/organizers-campaign-dashboard-web-a9h44v` and push there.
+Work on `claude/london-mapping-ux-edits-16uadk` and push there.
 
 **The remote deliberately points at the old repo name**
 (`callumcant/username.github.io`). The repo was renamed to
@@ -187,9 +203,14 @@ Don't open a pull request unless asked.
 ## Known gaps
 
 - No automated tests. Verification is manual via Playwright.
-- Below ~820px the sidebar is `position: sticky` at full height, so on a phone
-  you scroll past the whole nav to reach content. Pre-existing; flagged to
-  Callum, not yet fixed.
+- The column picker's checkbox groups don't cover every one of the 57 school
+  columns; a key missing from `PICKER_GROUPS` is only reachable via the
+  "Everything" preset.
+- `downloadCsv` exports rows in filter order, not the order shown on screen —
+  so re-sorting a table doesn't change the exported file.
+- The Schools "All branches" filter actually filters `laName` (borough). A
+  separate `branchName` ("NEU branch") column exists. The label and the field
+  disagree; needs a decision on which one the filter should mean.
 - `repsTrainedSinceStart` has no data source. It's retained in the dictionary,
   schema and rollups for when training data arrives, but is not displayed.
 - Michal's bargaining-dashboard link from MAT pages needs a URL pattern from

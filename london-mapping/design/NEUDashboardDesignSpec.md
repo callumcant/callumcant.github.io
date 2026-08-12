@@ -67,7 +67,9 @@ Companion to `neu-dashboard-tokens.css`. Values below are the ones to implement 
 - Body row: `surface-card` bg, `text-primary` 14.6px/400, height 44px min (touch/click target), `border-bottom: 1px solid var(--gridline)`
 - Row hover: bg → `surface-hover`, `duration-fast` ease
 - Numeric columns: right-aligned, `tabular-nums`; text columns left-aligned
-- Zebra striping: not used — rely on `gridline` + hover only (keeps the palette restrained per DS guidance)
+- Zebra striping: `surface-zebra` on even rows (~2% off `surface-card`). Originally specified as "not used", to keep the palette restrained per DS guidance; reversed once the tables were in use, because they scroll horizontally and a reader tracking one school across nine or more columns needs a band to follow. The shift is small enough to read as texture rather than colour, and `gridline` + hover still do most of the work. Tables with a sticky first column must restate the stripe on that cell, which paints its own background.
+- Text cells: capped with `max-width` and ellipsised, full value on the `title` attribute — a long school name should not be able to set the column width for every other row.
+- Proportion bars: density and turnout cells only, `--accent` at 16%, scaled 0–100% behind the value. Not used on any other numeric column; a bar on an unbounded count would imply a maximum that doesn't exist.
 
 **Status pill / badge**
 - Shape: `radius-pill`, padding `2px 10px`, 12px/600 text

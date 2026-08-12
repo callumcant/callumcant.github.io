@@ -2,8 +2,8 @@ import { loadAll, addMeeting, addRepRecruited, removeEventLog } from "../data/st
 import { buildSchoolLevel } from "../data/rollups.js";
 import {
   renderDataTable, renderColumnControls, loadColumnPrefs, saveColumnPrefs,
-  downloadCsv, showToast, openMicroForm, formatNumber, formatPercent, formatDate,
-  escapeHtml,
+  downloadCsv, csvFilename, showToast, openMicroForm, formatNumber, formatPercent,
+  formatDate, escapeHtml, barCell, ragPill, livePill,
 } from "../ui.js";
 import { getSignedInName } from "../auth.js";
 import { quadrantBadge } from "../ui/quadrant.js";
@@ -69,21 +69,30 @@ function schoolColumns() {
     { key: "membersTeachers", label: "Members (teachers)", num: true, render: (r) => formatNumber(r.membersTeachers) },
     { key: "membersLeadership", label: "Members (leadership)", num: true, render: (r) => formatNumber(r.membersLeadership) },
     { key: "membersSupport", label: "Members (support)", num: true, render: (r) => formatNumber(r.membersSupport) },
-    { key: "densityTotal", label: "Density", num: true, render: (r) => formatPercent(r.densityTotal),
+    // Density and turnout carry a proportion bar: they're the only columns
+    // bounded at 100%, so they're the only ones where a bar means anything.
+    { key: "densityTotal", label: "Density", num: true, cellClass: "has-bar",
+      render: (r) => barCell(r.densityTotal, formatPercent(r.densityTotal)),
       csv: (r) => (r.densityTotal == null ? "" : r.densityTotal.toFixed(4)) },
-    { key: "densityTeachers", label: "Density (teachers)", num: true, render: (r) => formatPercent(r.densityTeachers),
+    { key: "densityTeachers", label: "Density (teachers)", num: true, cellClass: "has-bar",
+      render: (r) => barCell(r.densityTeachers, formatPercent(r.densityTeachers)),
       csv: (r) => (r.densityTeachers == null ? "" : r.densityTeachers.toFixed(4)) },
-    { key: "densityLeadership", label: "Density (leadership)", num: true, render: (r) => formatPercent(r.densityLeadership),
+    { key: "densityLeadership", label: "Density (leadership)", num: true, cellClass: "has-bar",
+      render: (r) => barCell(r.densityLeadership, formatPercent(r.densityLeadership)),
       csv: (r) => (r.densityLeadership == null ? "" : r.densityLeadership.toFixed(4)) },
-    { key: "densitySupport", label: "Density (support)", num: true, render: (r) => formatPercent(r.densitySupport),
+    { key: "densitySupport", label: "Density (support)", num: true, cellClass: "has-bar",
+      render: (r) => barCell(r.densitySupport, formatPercent(r.densitySupport)),
       csv: (r) => (r.densitySupport == null ? "" : r.densitySupport.toFixed(4)) },
+    // Sits here rather than with the other organising columns so the default
+    // nine read strength-then-outcome: members, density, reps, turnout.
+    { key: "repCount", label: "Reps", num: true },
     { key: "membersVoted2026", label: "Voted 2026", num: true, render: (r) => formatNumber(r.membersVoted2026) },
     { key: "membersVoted2025", label: "Voted 2025", num: true, render: (r) => formatNumber(r.membersVoted2025) },
     { key: "membersVoted2024", label: "Voted 2024", num: true, render: (r) => formatNumber(r.membersVoted2024) },
-    { key: "turnout2026", label: "Turnout 2026", num: true, render: (r) => formatPercent(r.turnout2026),
+    { key: "turnout2026", label: "Turnout 2026", num: true, cellClass: "has-bar",
+      render: (r) => barCell(r.turnout2026, formatPercent(r.turnout2026)),
       csv: (r) => (r.turnout2026 == null ? "" : r.turnout2026.toFixed(4)) },
 
-    { key: "repCount", label: "Reps", num: true },
     { key: "volunteers", label: "Volunteers", num: true },
     { key: "wpConversations", label: "WP conversations", num: true },
     { key: "repRecruitedVolunteer", label: "Rep recruited volunteer", num: true },
@@ -109,9 +118,13 @@ function schoolColumns() {
   ];
 }
 
+// Nine columns: enough to answer "which schools have members and no rep"
+// without scrolling sideways on a laptop. The teacher/support density splits
+// and the latest-note column moved into the picker — useful, but not on the
+// first screen every time.
 const DEFAULT_KEYS = [
-  "schoolName", "phase", "laName", "trust", "membersTotal", "densityTotal",
-  "densityTeachers", "densitySupport", "repCount", "latestNoteTitle",
+  "schoolName", "phase", "laName", "trust", "headcountTotal",
+  "membersTotal", "densityTotal", "repCount", "turnout2026",
 ];
 
 const PRESETS = {
@@ -158,7 +171,7 @@ const PICKER_GROUPS = [
   { label: "Activity", keys: ["meetingsLogged", "repsRecruitedLogged", "latestNoteTitle", "noteCount", "lastNoteDate"] },
 ];
 
-export async function renderList(container) {
+export async function renderList(container, params = {}) {
   const state = await loadAll();
   const schools = buildSchoolLevel(state);
   const columns = schoolColumns();
@@ -166,7 +179,27 @@ export async function renderList(container) {
   const trusts = [...new Set(schools.map((s) => s.trust).filter(Boolean))].sort();
   const phases = [...new Set(schools.map((s) => s.phase).filter(Boolean))].sort();
 
-  let visibleKeys = loadColumnPrefs(PREFS_KEY, DEFAULT_KEYS);
+  // Filters arrive from the hash so a filtered view can be pasted into Slack
+  // and land on the same thing. Anything unrecognised is dropped rather than
+  // applied — a stale borough name in an old link should show every school,
+  // not none of them.
+  const query = params.query || {};
+  const oneOf = (value, allowed) => (allowed.includes(value) ? value : "");
+  const initial = {
+    q: query.q || "",
+    branch: oneOf(query.branch, branches),
+    phase: oneOf(query.phase, phases),
+    trust: oneOf(query.trust, trusts),
+    rep: oneOf(query.rep, ["no-rep"]),
+  };
+
+  // Columns in the URL win over the saved preference, but are NOT written back
+  // to it: opening someone else's link shouldn't quietly replace the column set
+  // you've built up for yourself.
+  const columnKeys = new Set(columns.map((c) => c.key));
+  const urlCols = (query.cols || "").split(",").map((k) => k.trim()).filter((k) => columnKeys.has(k));
+  let visibleKeys = urlCols.length ? new Set(urlCols) : loadColumnPrefs(PREFS_KEY, DEFAULT_KEYS);
+  const fromUrl = urlCols.length > 0;
 
   container.innerHTML = `
     <div class="topbar">
@@ -174,22 +207,23 @@ export async function renderList(container) {
       <button class="btn" id="export-csv">Export CSV</button>
     </div>
     <div class="filter-bar">
-      <input type="search" id="school-search" placeholder="Search name, URN or postcode" />
+      <input type="search" id="school-search" placeholder="Search name, URN or postcode"
+             value="${escapeHtml(initial.q)}" />
       <select id="school-branch-filter">
         <option value="">All branches</option>
-        ${branches.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join("")}
+        ${branches.map((b) => `<option value="${escapeHtml(b)}"${b === initial.branch ? " selected" : ""}>${escapeHtml(b)}</option>`).join("")}
       </select>
       <select id="school-phase-filter">
         <option value="">All phases</option>
-        ${phases.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("")}
+        ${phases.map((p) => `<option value="${escapeHtml(p)}"${p === initial.phase ? " selected" : ""}>${escapeHtml(p)}</option>`).join("")}
       </select>
       <select id="school-trust-filter">
         <option value="">All MATs</option>
-        ${trusts.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("")}
+        ${trusts.map((t) => `<option value="${escapeHtml(t)}"${t === initial.trust ? " selected" : ""}>${escapeHtml(t)}</option>`).join("")}
       </select>
       <select id="school-rep-filter">
         <option value="">All schools</option>
-        <option value="no-rep">No rep only</option>
+        <option value="no-rep"${initial.rep === "no-rep" ? " selected" : ""}>No rep only</option>
       </select>
     </div>
     <div id="column-controls"></div>
@@ -218,44 +252,175 @@ export async function renderList(container) {
     });
   }
 
-  function drawControls() {
-    renderColumnControls(controlsEl, {
-      columns, groups: PICKER_GROUPS, presets: PRESETS, visibleKeys,
-      onChange: (next) => {
-        visibleKeys = next;
-        saveColumnPrefs(PREFS_KEY, visibleKeys);
-        drawControls();
-        drawTable();
-      },
-    });
+  // Owned here rather than inside renderDataTable, so that re-drawing the table
+  // on every keystroke doesn't throw away the sort the user chose.
+  const sortState = { key: "schoolName", dir: "asc" };
+
+  // Written with replaceState, not by assigning location.hash: assigning fires
+  // hashchange, which makes the router rebuild the page and scroll to the top —
+  // mid-keystroke. replaceState fires nothing, and leaves no history entries to
+  // click back through either.
+  function syncUrl() {
+    const next = new URLSearchParams();
+    if (searchEl.value.trim()) next.set("q", searchEl.value.trim());
+    if (branchEl.value) next.set("branch", branchEl.value);
+    if (phaseEl.value) next.set("phase", phaseEl.value);
+    if (trustEl.value) next.set("trust", trustEl.value);
+    if (repEl.value) next.set("rep", repEl.value);
+    // Only when it differs from the default, so an ordinary visit keeps a clean
+    // #/schools rather than a URL carrying nine column names.
+    const isDefault =
+      visibleKeys.size === DEFAULT_KEYS.length && DEFAULT_KEYS.every((k) => visibleKeys.has(k));
+    if (!isDefault) next.set("cols", [...visibleKeys].join(","));
+    const qs = next.toString();
+    history.replaceState(null, "", `#/schools${qs ? `?${qs}` : ""}`);
   }
+
+  let urlTimer = null;
+  function syncUrlDebounced() {
+    clearTimeout(urlTimer);
+    urlTimer = setTimeout(syncUrl, 300);
+  }
+
+  renderColumnControls(controlsEl, {
+    columns, groups: PICKER_GROUPS, presets: PRESETS, visibleKeys,
+    onChange: (next) => {
+      visibleKeys = next;
+      saveColumnPrefs(PREFS_KEY, visibleKeys);
+      drawTable();
+      syncUrl();
+    },
+  });
 
   function drawTable() {
     const rows = currentRows();
     renderDataTable(tableEl, columns, rows, {
       visibleKeys,
       stickyFirst: true,
-      defaultSort: "schoolName",
-      defaultDir: "asc",
+      sortState,
     });
     countEl.textContent = `${rows.length} of ${schools.length} schools · ${visibleKeys.size} columns`;
   }
 
-  [searchEl, branchEl, phaseEl, trustEl, repEl].forEach((el) =>
-    el.addEventListener("input", drawTable)
+  // Typing debounces; picking from a dropdown is a discrete act and lands at
+  // once.
+  searchEl.addEventListener("input", () => {
+    drawTable();
+    syncUrlDebounced();
+  });
+  [branchEl, phaseEl, trustEl, repEl].forEach((el) =>
+    el.addEventListener("input", () => {
+      drawTable();
+      syncUrl();
+    })
   );
 
   container.querySelector("#export-csv").addEventListener("click", () => {
     const visible = columns.filter((c) => visibleKeys.has(c.key));
-    downloadCsv(`schools-${new Date().toISOString().slice(0, 10)}.csv`, visible, currentRows());
+    const scope = branchEl.value || trustEl.value || "";
+    downloadCsv(csvFilename(scope, "schools"), visible, currentRows());
   });
 
-  drawControls();
   drawTable();
+  // A link carrying columns needs the URL left as-is; anything else gets
+  // normalised so the address bar matches the controls from the first paint.
+  if (!fromUrl) syncUrl();
 }
 
 function statRow(label, value) {
   return `<div class="stat-row"><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`;
+}
+
+// --- Disputes --------------------------------------------------------------
+// The page previously showed notes, meetings and reps but not disputes, so it
+// was possible to prepare for a school visit without knowing the employer was
+// in dispute. buildSchoolLevel already attaches `disputes` by URN membership —
+// a MAT-wide dispute lists every affected URN, so the match is containment,
+// not equality — this just had nobody reading it.
+
+function disputeYear(d) {
+  const iso = d.dateOfResolution || d.dateIndicativeOpens;
+  return iso ? String(iso).slice(0, 4) : null;
+}
+
+// A dispute covering more than one URN is a trust-wide action. Saying so, and
+// linking to the MAT, stops it being read as this school's own fight.
+function matWideNote(d) {
+  if (!d.urns || d.urns.length <= 1) return "";
+  const scope = `MAT-wide · affects ${d.urns.length} schools`;
+  return d.mat
+    ? `<a href="#/mats/${encodeURIComponent(d.mat)}">${escapeHtml(scope)}</a>`
+    : escapeHtml(scope);
+}
+
+function liveDisputeHtml(d) {
+  const facts = [];
+  if (d.issues?.length) facts.push(statRow("Issues", escapeHtml(d.issues.join(", "))));
+  if (d.indicativePercent != null) {
+    const members = d.membershipAtIndicative != null
+      ? ` of ${formatNumber(d.membershipAtIndicative)} members`
+      : "";
+    facts.push(statRow("Indicative ballot", `${formatPercent(d.indicativePercent)}${escapeHtml(members)}`));
+  }
+  if (d.formalBallotPercent != null) facts.push(statRow("Formal ballot", formatPercent(d.formalBallotPercent)));
+  if (d.dateIndicativeOpens) facts.push(statRow("Indicative opens", formatDate(d.dateIndicativeOpens)));
+  if (d.totalStrikeDays) facts.push(statRow("Strike days so far", formatNumber(d.totalStrikeDays)));
+  if (d.staffResponsible) {
+    facts.push(statRow("Dispute lead", escapeHtml(`${d.staffResponsible}${d.rorIo ? ` (${d.rorIo})` : ""}`)));
+  }
+  const scope = matWideNote(d);
+  return `
+    <div class="dispute-live">
+      <div class="dispute-head">
+        <a class="row-link" href="#/disputes/${encodeURIComponent(d.id)}">${escapeHtml(d.employer || "(employer not recorded)")}</a>
+        ${livePill(d.live)}
+        ${ragPill(d.outcome)}
+      </div>
+      ${scope ? `<div class="dispute-scope">${scope}</div>` : ""}
+      ${facts.length ? `<dl class="stat-list">${facts.join("")}</dl>` : ""}
+    </div>`;
+}
+
+// One line each. A school that struck twice in three years is a different
+// proposition from one that never has, and that has to be readable at a glance
+// rather than reconstructed from a table.
+function resolvedDisputeHtml(d) {
+  const year = disputeYear(d);
+  const bits = [
+    year,
+    d.issues?.length ? d.issues.join(", ") : null,
+    d.totalStrikeDays ? `${d.totalStrikeDays} strike ${d.totalStrikeDays === 1 ? "day" : "days"}` : "no strike days",
+  ].filter(Boolean);
+  const scope = matWideNote(d);
+  return `
+    <li class="dispute-past">
+      <a class="row-link" href="#/disputes/${encodeURIComponent(d.id)}">${escapeHtml(bits.join(" · "))}</a>
+      <span class="dispute-past-status">Resolved ${ragPill(d.outcome)}</span>
+      ${scope ? `<span class="dispute-scope">${scope}</span>` : ""}
+    </li>`;
+}
+
+function disputesCardHtml(school) {
+  const all = school.disputes || [];
+  if (all.length === 0) {
+    return `
+      <div class="section-title">Disputes</div>
+      <div class="card"><p class="muted-cell">No disputes recorded for this school.</p></div>`;
+  }
+
+  const byDateDesc = (key) => (a, b) => String(b[key] || "").localeCompare(String(a[key] || ""));
+  const live = all.filter((d) => d.live === "Yes").sort(byDateDesc("dateIndicativeOpens"));
+  const past = all.filter((d) => d.live !== "Yes").sort(byDateDesc("dateOfResolution"));
+
+  return `
+    <div class="section-title">Disputes</div>
+    <div class="card">
+      ${live.map(liveDisputeHtml).join("")}
+      ${past.length
+        ? `<div class="dispute-past-label">Previously</div>
+           <ul class="dispute-past-list">${past.map(resolvedDisputeHtml).join("")}</ul>`
+        : ""}
+    </div>`;
 }
 
 export async function renderDetail(container, { urn }) {
@@ -312,6 +477,8 @@ export async function renderDetail(container, { urn }) {
     </div>
 
     <div class="quadrant-badges">${badges}</div>
+
+    ${disputesCardHtml(school)}
 
     <div class="btn-row" style="margin-top:0;">
       <button class="btn btn-primary" id="log-meeting">+ Log meeting</button>

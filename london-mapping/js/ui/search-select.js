@@ -21,10 +21,16 @@ let nextId = 0;
 
 /**
  * @param {Element} container
- * @param {Array} items    [{ name, summary, href, featured }]
+ * @param {Array} items    [{ name, summary, href, featured, group, keywords }]
  *                         `href` is a full hash target, already encoded.
  *                         `featured` items are the empty-input starting list.
- * @param {Object} options { placeholder, label, defaultLabel, limit }
+ *                         `group` (optional) buckets results under a heading;
+ *                         when any item has one, `limit` applies PER group.
+ *                         `keywords` (optional) is extra matchable text that
+ *                         isn't shown — a school's URN and postcode.
+ * @param {Object} options { placeholder, label, defaultLabel, limit, autofocus,
+ *                           groupOrder, onEscape, onNavigate }
+ * @returns {{ focus, clear, hasQuery }}
  */
 export function renderSearchSelect(container, items, options = {}) {
   const id = `search-select-${nextId++}`;
@@ -32,6 +38,8 @@ export function renderSearchSelect(container, items, options = {}) {
   const label = options.label || "Search";
   const defaultLabel = options.defaultLabel || "Suggestions";
   const featured = items.filter((i) => i.featured);
+  const grouped = items.some((i) => i.group);
+  const groupOrder = options.groupOrder || [];
 
   let query = "";
   let highlighted = 0;
@@ -49,8 +57,10 @@ export function renderSearchSelect(container, items, options = {}) {
         aria-controls="${id}-list"
         aria-autocomplete="list"
         placeholder="${escapeHtml(options.placeholder || "Search")}" />
-      <p class="search-select-hint" id="${id}-hint"></p>
-      <ul class="search-select-list" id="${id}-list" role="listbox" aria-label="${escapeHtml(label)}"></ul>
+      <div class="search-select-panel">
+        <p class="search-select-hint" id="${id}-hint"></p>
+        <ul class="search-select-list" id="${id}-list" role="listbox" aria-label="${escapeHtml(label)}"></ul>
+      </div>
       <div class="sr-only" role="status" aria-live="polite" id="${id}-status"></div>
     </div>
   `;
@@ -62,11 +72,33 @@ export function renderSearchSelect(container, items, options = {}) {
 
   // Substring, not prefix. "Hamlets" should find "Tower Hamlets (&CoL)", and
   // "Romero" should find "Oscar Romero" — people search by the distinctive
-  // part of a name, which is rarely the first word.
+  // part of a name, which is rarely the first word. `keywords` widens this to
+  // things nobody would call a name but everybody searches by: a URN typed off
+  // a spreadsheet, a postcode read off an email.
+  function hits(item, q) {
+    if (item.name.toLowerCase().includes(q)) return true;
+    return item.keywords ? item.keywords.toLowerCase().includes(q) : false;
+  }
+
+  // Returns a flat array in display order. Keyboard navigation indexes into
+  // this, so group headings must never take a slot in it — they're inserted at
+  // render time only.
   function matches() {
     const q = query.trim().toLowerCase();
     if (!q) return featured;
-    return items.filter((i) => i.name.toLowerCase().includes(q)).slice(0, limit);
+    const found = items.filter((i) => hits(i, q));
+    if (!grouped) return found.slice(0, limit);
+
+    // Capped per group rather than overall, so a common word like "park"
+    // matching forty schools can't crowd the one branch out of the list.
+    const byGroup = new Map();
+    for (const item of found) {
+      const g = item.group || "";
+      if (!byGroup.has(g)) byGroup.set(g, []);
+      byGroup.get(g).push(item);
+    }
+    const order = [...groupOrder.filter((g) => byGroup.has(g)), ...[...byGroup.keys()].filter((g) => !groupOrder.includes(g))];
+    return order.flatMap((g) => byGroup.get(g).slice(0, limit));
   }
 
   function draw() {
@@ -89,7 +121,17 @@ export function renderSearchSelect(container, items, options = {}) {
       ? defaultLabel
       : `${results.length} ${results.length === 1 ? "match" : "matches"}`;
 
-    list.innerHTML = results.map((item, index) => `
+    // Headings are role="presentation" so they occupy no position in the
+    // listbox — a screen reader counts 12 options, not 12 options and 3
+    // headings, and the arrow keys agree with that count.
+    let lastGroup = null;
+    list.innerHTML = results.map((item, index) => {
+      let heading = "";
+      if (grouped && item.group && item.group !== lastGroup) {
+        lastGroup = item.group;
+        heading = `<li class="search-group" role="presentation">${escapeHtml(item.group)}</li>`;
+      }
+      return `${heading}
       <li class="search-result${index === highlighted ? " highlighted" : ""}"
           id="${id}-opt-${index}"
           role="option"
@@ -97,7 +139,8 @@ export function renderSearchSelect(container, items, options = {}) {
           data-index="${index}">
         <span class="search-result-name">${escapeHtml(item.name)}</span>
         <span class="search-result-summary">${escapeHtml(item.summary || "")}</span>
-      </li>`).join("");
+      </li>`;
+    }).join("");
 
     input.setAttribute("aria-activedescendant", `${id}-opt-${highlighted}`);
     // defaultLabel is used as written — lowercasing it turned "Target MATs"
@@ -110,7 +153,16 @@ export function renderSearchSelect(container, items, options = {}) {
   function go(index) {
     const results = matches();
     const item = results[index];
-    if (item) window.location.hash = item.href;
+    if (!item) return;
+    window.location.hash = item.href;
+    if (options.onNavigate) options.onNavigate(item);
+  }
+
+  function clear() {
+    query = "";
+    input.value = "";
+    highlighted = 0;
+    draw();
   }
 
   input.addEventListener("input", () => {
@@ -138,10 +190,11 @@ export function renderSearchSelect(container, items, options = {}) {
       go(highlighted);
     } else if (e.key === "Escape") {
       e.preventDefault();
-      query = "";
-      input.value = "";
-      highlighted = 0;
-      draw();
+      // First Escape clears a typed query; a second one (box already empty)
+      // means "I'm done here" — which for the header search closes the popover.
+      const wasEmpty = !query.trim();
+      clear();
+      if (wasEmpty && options.onEscape) options.onEscape();
     } else if (e.key === "Home" && results.length) {
       e.preventDefault();
       highlighted = 0;
@@ -171,4 +224,11 @@ export function renderSearchSelect(container, items, options = {}) {
 
   draw();
   if (options.autofocus !== false) input.focus();
+
+  return {
+    focus: () => input.focus(),
+    blur: () => input.blur(),
+    clear,
+    hasQuery: () => Boolean(query.trim()),
+  };
 }

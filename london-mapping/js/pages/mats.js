@@ -1,6 +1,6 @@
 import { loadAll } from "../data/store.js";
 import { buildSchoolLevel, buildMatLevel } from "../data/rollups.js";
-import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml, showToast } from "../ui.js";
+import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml, showToast, downloadCsv, csvFilename, barCell } from "../ui.js";
 import { renderQuadrant } from "../ui/quadrant.js";
 import { renderSearchSelect } from "../ui/search-select.js";
 import { levelHeaderHtml, headlineTiles, footerStat } from "../ui/level-header.js";
@@ -176,6 +176,9 @@ export async function renderDetail(container, { name }) {
     <div class="card"><div id="mat-quadrant"></div></div>
 
     <div class="section-title">Schools in this trust</div>
+    <div class="btn-row" style="margin-top:0;">
+      <button class="btn btn-small" id="export-mat-schools">Export CSV</button>
+    </div>
     <div class="card"><div id="mat-schools-table"></div></div>
 
     <div class="section-title">Field notes</div>
@@ -199,17 +202,29 @@ export async function renderDetail(container, { name }) {
     title: `${mat.name} organising quadrant`,
   });
 
+  // Hoisted so the export uses exactly the columns on screen; `csv` keeps the
+  // raw fraction out of the "41.2%" display string.
+  const schoolColumns = [
+    { key: "schoolName", label: "School", render: (r) => `<a class="row-link" href="#/schools/${r.urn}">${escapeHtml(r.schoolName)}</a>` },
+    { key: "laName", label: "Borough" },
+    { key: "membersTotal", label: "Members", num: true, render: (r) => formatNumber(r.membersTotal) },
+    { key: "densityTotal", label: "Density", num: true, cellClass: "has-bar",
+      render: (r) => barCell(r.densityTotal, formatPercent(r.densityTotal)),
+      csv: (r) => (r.densityTotal == null ? "" : r.densityTotal.toFixed(4)) },
+    { key: "turnout2026", label: "2026 turnout", num: true, cellClass: "has-bar",
+      render: (r) => barCell(r.turnout2026, formatPercent(r.turnout2026)),
+      csv: (r) => (r.turnout2026 == null ? "" : r.turnout2026.toFixed(4)) },
+    { key: "repCount", label: "Reps", num: true },
+  ];
+
   renderDataTable(
     container.querySelector("#mat-schools-table"),
-    [
-      { key: "schoolName", label: "School", render: (r) => `<a class="row-link" href="#/schools/${r.urn}">${escapeHtml(r.schoolName)}</a>` },
-      { key: "laName", label: "Borough" },
-      { key: "membersTotal", label: "Members", num: true, render: (r) => formatNumber(r.membersTotal) },
-      { key: "densityTotal", label: "Density", num: true, render: (r) => formatPercent(r.densityTotal) },
-      { key: "turnout2026", label: "2026 turnout", num: true, render: (r) => formatPercent(r.turnout2026) },
-      { key: "repCount", label: "Reps", num: true },
-    ],
+    schoolColumns,
     mat.schools,
     { defaultSort: "membersTotal", defaultDir: "desc" }
   );
+
+  container.querySelector("#export-mat-schools").addEventListener("click", () => {
+    downloadCsv(csvFilename(mat.name, "schools"), schoolColumns, mat.schools);
+  });
 }

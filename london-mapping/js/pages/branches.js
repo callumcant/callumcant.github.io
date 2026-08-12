@@ -1,6 +1,6 @@
 import { loadAll } from "../data/store.js";
 import { buildSchoolLevel, buildBranchLevel } from "../data/rollups.js";
-import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml } from "../ui.js";
+import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml, downloadCsv, csvFilename, barCell } from "../ui.js";
 import { renderQuadrant } from "../ui/quadrant.js";
 import { renderSearchSelect } from "../ui/search-select.js";
 import { levelHeaderHtml, headlineTiles, footerStat } from "../ui/level-header.js";
@@ -90,6 +90,9 @@ export async function renderDetail(container, { name }) {
     <div class="card"><div id="branch-quadrant"></div></div>
 
     <div class="section-title">Schools in ${escapeHtml(branch.name)}</div>
+    <div class="btn-row" style="margin-top:0;">
+      <button class="btn btn-small" id="export-branch-schools">Export CSV</button>
+    </div>
     <div class="card"><div id="branch-schools-table"></div></div>
 
     <div class="section-title">Field notes</div>
@@ -111,18 +114,33 @@ export async function renderDetail(container, { name }) {
     title: `${branch.name} organising quadrant`,
   });
 
+  // Hoisted out of the renderDataTable call so the export can reuse exactly the
+  // columns on screen. `csv` carries the raw fraction rather than the "41.2%"
+  // string, so the figures stay usable in a spreadsheet.
+  const schoolColumns = [
+    { key: "schoolName", label: "School", render: (r) => `<a class="row-link" href="#/schools/${r.urn}">${escapeHtml(r.schoolName)}</a>` },
+    { key: "trust", label: "MAT" },
+    { key: "membersTotal", label: "Members", num: true, render: (r) => formatNumber(r.membersTotal) },
+    { key: "densityTotal", label: "Density", num: true, cellClass: "has-bar",
+      render: (r) => barCell(r.densityTotal, formatPercent(r.densityTotal)),
+      csv: (r) => (r.densityTotal == null ? "" : r.densityTotal.toFixed(4)) },
+    { key: "densityTeachers", label: "Density (teachers)", num: true, cellClass: "has-bar",
+      render: (r) => barCell(r.densityTeachers, formatPercent(r.densityTeachers)),
+      csv: (r) => (r.densityTeachers == null ? "" : r.densityTeachers.toFixed(4)) },
+    { key: "densitySupport", label: "Density (support)", num: true, cellClass: "has-bar",
+      render: (r) => barCell(r.densitySupport, formatPercent(r.densitySupport)),
+      csv: (r) => (r.densitySupport == null ? "" : r.densitySupport.toFixed(4)) },
+    { key: "repCount", label: "Reps", num: true },
+  ];
+
   renderDataTable(
     container.querySelector("#branch-schools-table"),
-    [
-      { key: "schoolName", label: "School", render: (r) => `<a class="row-link" href="#/schools/${r.urn}">${escapeHtml(r.schoolName)}</a>` },
-      { key: "trust", label: "MAT" },
-      { key: "membersTotal", label: "Members", num: true, render: (r) => formatNumber(r.membersTotal) },
-      { key: "densityTotal", label: "Density", num: true, render: (r) => formatPercent(r.densityTotal) },
-      { key: "densityTeachers", label: "Density (teachers)", num: true, render: (r) => formatPercent(r.densityTeachers) },
-      { key: "densitySupport", label: "Density (support)", num: true, render: (r) => formatPercent(r.densitySupport) },
-      { key: "repCount", label: "Reps", num: true },
-    ],
+    schoolColumns,
     branch.schools,
     { defaultSort: "membersTotal", defaultDir: "desc" }
   );
+
+  container.querySelector("#export-branch-schools").addEventListener("click", () => {
+    downloadCsv(csvFilename(branch.name, "schools"), schoolColumns, branch.schools);
+  });
 }

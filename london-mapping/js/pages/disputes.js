@@ -3,7 +3,7 @@ import { buildSchoolLevel } from "../data/rollups.js";
 import { LONDON_BOROUGHS, DISPUTE_ISSUE_TYPES, ROR_IO_OPTIONS, RAG_OPTIONS } from "../config.js";
 import {
   renderDataTable, renderColumnControls, loadColumnPrefs, saveColumnPrefs,
-  downloadCsv, formatNumber, formatPercent, formatDate, ragPill, livePill, escapeHtml,
+  downloadCsv, csvFilename, formatNumber, formatPercent, formatDate, ragPill, livePill, escapeHtml,
 } from "../ui.js";
 import { navigate } from "../router.js";
 
@@ -20,7 +20,9 @@ function disputeColumns(schoolNameByUrn) {
       render: (r) => `<a class="row-link" href="#/disputes/${r.id}">${escapeHtml(r.employer)}</a>` },
     { key: "branch", label: "Branch" },
     { key: "mat", label: "MAT", render: (r) => escapeHtml(r.mat || "—") },
-    { key: "live", label: "Status", render: (r) => livePill(r.live) },
+    // "Live" rather than "Status": the RAG column is what's now called Status,
+    // and this one matches the workbook's own "Live" header.
+    { key: "live", label: "Live", render: (r) => livePill(r.live) },
     { key: "schoolsCount", label: "# Schools", num: true,
       sortValue: (r) => (r.urns || []).length,
       render: (r) => String((r.urns || []).length) },
@@ -47,7 +49,7 @@ function disputeColumns(schoolNameByUrn) {
     { key: "resolvedPriorToAction", label: "Resolved before action" },
     { key: "dateOfResolution", label: "Resolved", render: (r) => formatDate(r.dateOfResolution),
       csv: (r) => r.dateOfResolution || "" },
-    { key: "outcome", label: "Outcome", render: (r) => ragPill(r.outcome) },
+    { key: "outcome", label: "Status", render: (r) => ragPill(r.outcome) },
     { key: "totalStrikeDays", label: "Strike days", num: true },
     { key: "tradeDisputeLetter", label: "Trade dispute letter", render: link("tradeDisputeLetter") },
     { key: "formalBallotRequest", label: "Formal ballot request", render: link("formalBallotRequest") },
@@ -66,7 +68,7 @@ const PRESETS = {
   essentials: { label: "Essentials", keys: DEFAULT_KEYS },
   schools: { label: "Schools affected", keys: ["employer", "branch", "mat", "live", "schoolsCount", "schoolNames", "urns"] },
   ballots: { label: "Ballots", keys: ["employer", "live", "dateIndicativeOpens", "indicativePercent", "membershipAtIndicative", "formalBallotPercent", "resolvedPriorToAction"] },
-  outcome: { label: "Outcome", keys: ["employer", "branch", "live", "dateOfResolution", "outcome", "totalStrikeDays"] },
+  outcome: { label: "Status", keys: ["employer", "branch", "live", "dateOfResolution", "outcome", "totalStrikeDays"] },
   documents: { label: "Documents", keys: ["employer", "tradeDisputeLetter", "formalBallotRequest", "noticeOfFormalBallot", "noticeOfStrikeDates", "endOfDisputeReport"] },
   everything: { label: "Everything", keys: null },
 };
@@ -76,7 +78,7 @@ const PICKER_GROUPS = [
   { label: "Schools", keys: ["schoolsCount", "schoolNames", "urns"] },
   { label: "People & issues", keys: ["issues", "rorIo", "staffResponsible"] },
   { label: "Ballots", keys: ["dateIndicativeOpens", "indicativePercent", "membershipAtIndicative", "formalBallotPercent", "resolvedPriorToAction"] },
-  { label: "Outcome", keys: ["dateOfResolution", "outcome", "totalStrikeDays"] },
+  { label: "Status", keys: ["dateOfResolution", "outcome", "totalStrikeDays"] },
   { label: "Documents", keys: ["tradeDisputeLetter", "formalBallotRequest", "noticeOfFormalBallot", "noticeOfStrikeDates", "endOfDisputeReport"] },
 ];
 
@@ -107,7 +109,7 @@ export async function renderList(container) {
         ${[...new Set(disputes.map((d) => d.branch))].filter(Boolean).sort().map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join("")}
       </select>
       <select id="dispute-outcome-filter">
-        <option value="">All outcomes</option>
+        <option value="">All statuses</option>
         ${RAG_OPTIONS.map((o) => `<option value="${o}">${o}</option>`).join("")}
         <option value="none">Not yet set</option>
       </select>
@@ -134,36 +136,33 @@ export async function renderList(container) {
     });
   }
 
-  function drawControls() {
-    renderColumnControls(controlsEl, {
-      columns, groups: PICKER_GROUPS, presets: PRESETS, visibleKeys,
-      onChange: (next) => {
-        visibleKeys = next;
-        saveColumnPrefs(PREFS_KEY, visibleKeys);
-        drawControls();
-        drawTable();
-      },
-    });
-  }
+  // Owned here so re-drawing on a filter change doesn't discard the user's sort.
+  const sortState = { key: "employer", dir: "asc" };
+
+  renderColumnControls(controlsEl, {
+    columns, groups: PICKER_GROUPS, presets: PRESETS, visibleKeys,
+    onChange: (next) => {
+      visibleKeys = next;
+      saveColumnPrefs(PREFS_KEY, visibleKeys);
+      drawTable();
+    },
+  });
 
   function drawTable() {
     const rows = currentRows();
-    renderDataTable(tableEl, columns, rows, {
-      visibleKeys, stickyFirst: true, defaultSort: "employer", defaultDir: "asc",
-    });
+    renderDataTable(tableEl, columns, rows, { visibleKeys, stickyFirst: true, sortState });
     countEl.textContent = `${rows.length} of ${disputes.length} disputes · ${visibleKeys.size} columns`;
   }
 
   [liveEl, branchEl, outcomeEl].forEach((el) => el.addEventListener("input", drawTable));
   container.querySelector("#export-csv").addEventListener("click", () => {
     downloadCsv(
-      `disputes-${new Date().toISOString().slice(0, 10)}.csv`,
+      csvFilename(branchEl.value, "disputes"),
       columns.filter((c) => visibleKeys.has(c.key)),
       currentRows()
     );
   });
 
-  drawControls();
   drawTable();
 }
 
@@ -275,7 +274,7 @@ export async function renderForm(container, { id }) {
           <input name="dateOfResolution" type="date" value="${d.dateOfResolution || ""}" />
         </div>
         <div class="field">
-          <label>Outcome (RAG)</label>
+          <label>Status (RAG)</label>
           <select name="outcome">
             <option value="">Not yet set</option>
             ${optionsHtml(RAG_OPTIONS, d.outcome)}
