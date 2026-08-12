@@ -1,16 +1,50 @@
+// Strategic management view.
+//
+// Read weekly or monthly by the regional secretary, SIOs and IOs — a
+// monitoring surface, not an exploration tool. The Schools table is where you
+// go digging; the Branch and MAT pages are where "which schools need
+// attention" lives. This page answers one question: is the project moving, and
+// where isn't it.
+//
+// Three bands, deliberately unequal in weight:
+//   1. Outcomes (lagging)  — four large tiles. What actually changed.
+//   2. Activity (leading)  — two small tiles. What we did that should cause it.
+//   3. Exceptions          — a short ranked list. The only part anyone acts on.
+//
+// Band 2 is visually smaller than band 1 on purpose: meetings held is an input,
+// not an achievement, and a page that renders them the same size invites
+// mistaking effort for impact.
+//
+// Everything here reuses the existing rollups. Every scope — the project, one
+// borough, one trust — goes through the same summariseSchools(), which is what
+// makes a regional figure and a branch figure comparable rather than merely
+// similar-looking.
 import { loadAll } from "../data/store.js";
-import { buildSchoolLevel, buildMatLevel, buildBranchLevel, buildProjectDashboard, disputeKpis } from "../data/rollups.js";
-import { snapshotSeries, latestSnapshotDate, daysSince } from "../data/snapshots.js";
 import {
-  sparkline, formatDelta, formatNumber, formatPercent, formatDate,
-  ragPill, escapeHtml,
+  buildSchoolLevel, buildMatLevel, buildBranchLevel, summariseSchools, disputeKpis,
+} from "../data/rollups.js";
+import {
+  snapshotSeries, latestSnapshotDate, daysSince, baselinePoint, pointWeeksBefore,
+  seriesCadence, BASELINE_DATE,
+} from "../data/snapshots.js";
+import { detectExceptions } from "../data/exceptions.js";
+import {
+  sparkline, formatDelta, formatNumber, formatPercent, formatDate, escapeHtml,
 } from "../ui.js";
 
 const SCOPE_KEY = "london-mapping:dashboard:scope";
 
-// A scope is the aggregate the whole page describes: the project as a whole,
-// one borough, or one MAT. An SIO asking "how is Bromley doing" gets the same
-// metrics as the project view rather than a different, lesser page.
+// The short comparison that sits under the baseline figure.
+const RECENT_WEEKS = 4;
+
+// London has 32 boroughs plus the City. Five are project branches, so a spine
+// covering the region leaves nearly thirty others. Far fewer than that means
+// only the project boroughs were loaded, and "the rest of the region" would be
+// a handful of schools presented as a regional counterfactual — which is worse
+// than showing nothing.
+const MIN_NON_PROJECT_BRANCHES = 8;
+const MIN_NON_PROJECT_MATS = 3;
+
 function readScope() {
   try {
     return localStorage.getItem(SCOPE_KEY) || "project";
@@ -26,154 +60,313 @@ function writeScope(value) {
   }
 }
 
-function tile(label, value) {
-  return `
-    <div class="tile tile-compact">
-      <div class="tile-label">${escapeHtml(label)}</div>
-      <div class="tile-value">${escapeHtml(String(value))}</div>
-    </div>`;
+// "9 Aug" rather than "9 Aug 2026" inside a delta chip, where the year is
+// repeated on every tile and the cadence line already states it in full.
+function shortDate(iso) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "–";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
-// Resolves the selected scope into the metrics, school set and disputes the
-// rest of the page renders. Everything reuses the existing rollups rather than
-// aggregating a second way.
-function resolveScope(scopeValue, { dashboard, branches, mats, disputes }) {
+// ---------------------------------------------------------------------------
+// Scope
+// ---------------------------------------------------------------------------
+
+// Returns the metrics as named groups rather than one flat list. The flat list
+// is what forced every measure into a uniform grid of equal-looking tiles, and
+// with it the implication that membership and meetings-logged are the same
+// kind of fact.
+function resolveScope(scopeValue, { branches, mats, disputes }) {
+  let label = "the project";
+  let schools = [];
+  let scopeDisputes = disputes;
+  let isProject = false;
+  // The project scope unions two overlapping sets, so its school count needs
+  // to say which — otherwise the headline membership figure and the
+  // project-branches figure in the comparison below look like a contradiction.
+  let projectMakeup = "";
+
   if (scopeValue.startsWith("branch:")) {
-    const name = scopeValue.slice(7);
-    const b = branches.find((x) => x.name === name);
-    if (b) {
-      return {
-        label: `${b.name} branch`,
-        schools: b.schools,
-        disputes: disputes.filter((d) => d.branch === b.name),
-        metrics: [
-          ["Schools", formatNumber(b.schoolsCount)],
-          ["Membership", formatNumber(b.membersTotal)],
-          ["Density (teachers)", formatPercent(b.densityTeachers)],
-          ["Density (support)", formatPercent(b.densitySupport)],
-          ["Density (total)", formatPercent(b.densityTotal)],
-          ["Reps", formatNumber(b.reps)],
-          ["Member:rep ratio", b.memberRepRatio],
-          ["No rep schools", formatNumber(b.noRepSchools)],
-          ["School meetings held", formatNumber(b.schoolMeetingsHeld)],
-          ["Reps recruited", formatNumber(b.repsRecruited)],
-          ["Reps trained", formatNumber(b.repsTrainedSinceStart)],
-        ],
-      };
+    const branch = branches.find((b) => b.name === scopeValue.slice(7));
+    if (branch) {
+      label = `${branch.name} branch`;
+      schools = branch.schools;
+      scopeDisputes = disputes.filter((d) => d.branch === branch.name);
+    }
+  } else if (scopeValue.startsWith("mat:")) {
+    const mat = mats.find((m) => m.name === scopeValue.slice(4));
+    if (mat) {
+      label = mat.name;
+      schools = mat.schools;
+      scopeDisputes = disputes.filter((d) => d.mat === mat.name);
     }
   }
-  if (scopeValue.startsWith("mat:")) {
-    const name = scopeValue.slice(4);
-    const m = mats.find((x) => x.name === name);
-    if (m) {
-      return {
-        label: m.name,
-        schools: m.schools,
-        disputes: disputes.filter((d) => d.mat === m.name),
-        metrics: [
-          ["Schools", formatNumber(m.schoolCount)],
-          ["Boroughs", m.boroughsPresent.length],
-          ["Membership", formatNumber(m.membersTotal)],
-          ["Density (teachers)", formatPercent(m.densityTeachers)],
-          ["Density (support)", formatPercent(m.densitySupport)],
-          ["Density (total)", formatPercent(m.densityTotal)],
-          ["Reps", formatNumber(m.reps)],
-          ["Member:rep ratio", m.memberRepRatio],
-          ["Rep coverage", formatPercent(m.repCoveragePercent)],
-          ["No rep schools", formatNumber(m.noRepSchools)],
-          ["School meetings held", formatNumber(m.meetingsHeld)],
-          ["Reps recruited", formatNumber(m.repsRecruited)],
-        ],
-      };
+
+  if (schools.length === 0) {
+    // The project is both workstreams, and a trust can reach outside the five
+    // project boroughs — so the two sets are unioned and de-duplicated by URN
+    // rather than one standing in for the whole.
+    const byUrn = new Map();
+    for (const b of branches.filter((x) => x.isProjectBranch)) {
+      for (const s of b.schools) byUrn.set(String(s.urn), s);
     }
+    for (const m of mats.filter((x) => x.isTargetMat)) {
+      for (const s of m.schools) byUrn.set(String(s.urn), s);
+    }
+    schools = [...byUrn.values()];
+    isProject = true;
+    scopeDisputes = disputes;
+    projectMakeup = `${branches.filter((x) => x.isProjectBranch).length} project branches `
+      + `and ${mats.filter((x) => x.isTargetMat).length} target trusts`;
   }
-  // Default: the project as a whole.
-  const pb = dashboard.projectBranches;
+
+  const summary = summariseSchools(schools);
+  const kpis = disputeKpis(scopeDisputes);
+
   return {
-    label: "the project",
-    isProject: true,
-    schools: dashboard.branchList.flatMap((b) => b.schools),
-    disputes,
-    projectBranchNames: dashboard.branchList.map((b) => b.name),
-    projectMatNames: dashboard.matList.map((m) => m.name),
-    metrics: null, // the project view renders two blocks, below
-    pb,
-    pm: dashboard.projectMats,
+    label,
+    isProject,
+    schools,
+    disputes: scopeDisputes,
+    summary,
+    kpis,
+    // `field` names the snapshot series key that carries this measure over
+    // time; entries without one have no trend and say so instead of pretending.
+    outcomes: [
+      {
+        key: "membership", label: "Membership", field: "members", percent: false,
+        value: formatNumber(summary.membersTotal),
+        hint: `across ${formatNumber(summary.schoolCount)} schools`
+          + (projectMakeup ? ` in ${projectMakeup}` : ""),
+      },
+      {
+        key: "density", label: "Density", field: "density", percent: true,
+        value: formatPercent(summary.densityTotal),
+        hint: `${formatNumber(summary.membersTotal)} of ${formatNumber(summary.headcountTotal)} staff`,
+      },
+      {
+        key: "reps", label: "Reps", field: "reps", percent: false,
+        value: formatNumber(summary.reps),
+        hint: `${formatNumber(summary.noRepSchools)} schools with no rep · ${summary.memberRepRatio}`,
+      },
+      {
+        key: "disputes", label: "Live disputes", field: null, percent: false,
+        value: formatNumber(kpis.liveDisputes),
+        hint: `${formatNumber(kpis.strikeDays)} strike days · ${formatNumber(kpis.greenDisputes)} resolved green`,
+        href: "#/disputes",
+        // Disputes are a current-state table, not a snapshotted level. A
+        // "trend" reconstructed from open and resolution dates would silently
+        // drop every dispute with a blank date, so there isn't one.
+        noTrend: "Not captured in snapshots — the tracker holds the history",
+      },
+    ],
+    // Only these two. Reps trained has no data source and would read zero
+    // forever; workplace conversations aren't logged consistently enough to
+    // trust; active SEVs aren't something an organiser controls. The test is
+    // that an IO both drives it and records it reliably, and today nothing
+    // else passes. Both of these come from the app's own event logs, which is
+    // exactly why they're dependable.
+    activity: [
+      { key: "meetings", label: "Workplace meetings held", value: formatNumber(summary.meetingsHeld) },
+      { key: "recruited", label: "Reps recruited", value: formatNumber(summary.repsRecruited) },
+    ],
   };
 }
 
-// The six figures the original spreadsheet left blank under "membership
-// growth / density % improvement / ...". They only become answerable once
-// there is more than one snapshot to compare.
-function impactSection(series, scopeLabel, meetingsSeries = [], meetingsTotal = 0) {
+// ---------------------------------------------------------------------------
+// Band 1 — outcomes
+// ---------------------------------------------------------------------------
+
+function outcomeTile(entry, series, base, recent) {
+  const latest = series.length ? series[series.length - 1] : null;
+  const canTrend = entry.field && latest != null;
+  const values = canTrend ? series.map((p) => p[entry.field]) : [];
+
+  const sinceBaseline = canTrend && base
+    ? formatDelta(base[entry.field], latest[entry.field], { percent: entry.percent })
+    : null;
+  const sinceRecent = canTrend && recent
+    ? formatDelta(recent[entry.field], latest[entry.field], { percent: entry.percent })
+    : null;
+
+  // Direction is never carried by colour alone — formatDelta emits an arrow,
+  // and the word "since <date>" sits beside it.
+  const baselineRow = sinceBaseline
+    ? `<div class="tile-delta ${sinceBaseline.direction}">${escapeHtml(sinceBaseline.text)} since ${escapeHtml(shortDate(BASELINE_DATE))}</div>`
+    : "";
+  const recentRow = sinceRecent
+    ? `<div class="tile-delta-minor ${sinceRecent.direction}">${escapeHtml(sinceRecent.text)} in ${RECENT_WEEKS} weeks</div>`
+    : "";
+
+  const body = `
+    <div class="tile-label">${escapeHtml(entry.label)}</div>
+    <div class="tile-value">${escapeHtml(entry.value)}</div>
+    ${entry.hint ? `<div class="tile-hint">${escapeHtml(entry.hint)}</div>` : ""}
+    ${baselineRow}
+    ${recentRow}
+    ${entry.noTrend ? `<div class="tile-hint tile-hint-quiet">${escapeHtml(entry.noTrend)}</div>` : ""}
+    ${canTrend && values.length > 1 ? `<div class="tile-spark">${sparkline(values, { label: entry.label })}</div>` : ""}
+  `;
+
+  return entry.href
+    ? `<a class="tile tile-outcome tile-linked" href="${escapeHtml(entry.href)}">${body}</a>`
+    : `<div class="tile tile-outcome">${body}</div>`;
+}
+
+function outcomesBand(scope, series, base, recent) {
+  // Each band degrades on its own. A scope with one snapshot still shows its
+  // current figures; it just can't show movement, and says which.
+  let caveat = "";
   if (series.length < 2) {
+    caveat = series.length === 0
+      ? "No snapshots captured yet. The first is taken automatically the next time someone opens this page — change over time appears here after that."
+      : "One snapshot captured so far. Change over time appears here once there's a second to compare against, about a week from now.";
+  } else if (!base) {
+    // Covers both ways the baseline can be unusable: nothing captured at or
+    // after it, and a baseline capture that is itself the newest snapshot.
+    caveat = `There isn't yet a snapshot on or after the ${formatDate(BASELINE_DATE)} baseline with a later one to compare it against, `
+      + `so "since baseline" figures aren't shown. Comparing against whatever happened to be captured first would be a delta measured from an unstated starting line.`;
+  }
+
+  const split = `
+    <details class="density-split">
+      <summary>Density by staff category</summary>
+      <div class="split-row">
+        <div><span class="split-label">Teachers</span> ${escapeHtml(formatPercent(scope.summary.densityTeachers))}</div>
+        <div><span class="split-label">Leadership</span> ${escapeHtml(formatPercent(scope.summary.densityLeadership))}</div>
+        <div><span class="split-label">Support</span> ${escapeHtml(formatPercent(scope.summary.densitySupport))}</div>
+      </div>
+    </details>`;
+
+  return `
+    <div class="band-grid band-outcomes">
+      ${scope.outcomes.map((e) => outcomeTile(e, series, base, recent)).join("")}
+    </div>
+    ${caveat ? `<p class="band-caveat">${escapeHtml(caveat)}</p>` : ""}
+    ${split}`;
+}
+
+// ---------------------------------------------------------------------------
+// Project vs the rest of the region
+// ---------------------------------------------------------------------------
+
+function comparePanel(setLabel, series, field, percent) {
+  const latest = series.length ? series[series.length - 1] : null;
+  const base = baselinePoint(series);
+  const delta = base && latest
+    ? formatDelta(base[field], latest[field], { percent })
+    : null;
+  const value = latest == null
+    ? "–"
+    : percent ? formatPercent(latest[field]) : formatNumber(latest[field]);
+
+  return `
+    <div class="compare-cell">
+      <div class="compare-cell-label">${escapeHtml(setLabel)}</div>
+      <div class="compare-cell-value">${escapeHtml(value)}</div>
+      ${delta
+        ? `<div class="tile-delta ${delta.direction}">${escapeHtml(delta.text)} since ${escapeHtml(shortDate(BASELINE_DATE))}</div>`
+        : `<div class="tile-delta-minor flat">No baseline comparison yet</div>`}
+      <div class="tile-spark">${sparkline(series.map((p) => p[field]), { label: `${setLabel} ${field}` })}</div>
+    </div>`;
+}
+
+function compareBlock({ heading, aLabel, bLabel, aSeries, bSeries }) {
+  const measures = [
+    { field: "members", label: "Membership", percent: false },
+    { field: "density", label: "Density", percent: true },
+  ];
+  return `
+    <div class="card">
+      <div class="compare-heading">${escapeHtml(heading)}</div>
+      ${measures.map((m) => `
+        <div class="compare-row">
+          <div class="compare-measure">${escapeHtml(m.label)}</div>
+          ${comparePanel(aLabel, aSeries, m.field, m.percent)}
+          ${comparePanel(bLabel, bSeries, m.field, m.percent)}
+        </div>`).join("")}
+    </div>`;
+}
+
+// Membership up in project branches means little on its own. Up against a flat
+// or falling rest-of-region, it is an argument. That comparison is only honest
+// if the spine actually covers the region, so it checks before it draws.
+function comparisonSection(branches, mats, snapshots) {
+  const projectBranches = branches.filter((b) => b.isProjectBranch);
+  const otherBranches = branches.filter((b) => !b.isProjectBranch);
+  const targetMats = mats.filter((m) => m.isTargetMat);
+  const otherMats = mats.filter((m) => !m.isTargetMat);
+
+  const urnsOf = (groups) => groups.flatMap((g) => g.schools.map((s) => String(s.urn)));
+
+  const blocks = [];
+
+  if (otherBranches.length >= MIN_NON_PROJECT_BRANCHES) {
+    blocks.push(compareBlock({
+      heading: "Project branches against the rest of the region",
+      aLabel: `Project branches (${projectBranches.length})`,
+      bLabel: `Other boroughs (${otherBranches.length})`,
+      aSeries: snapshotSeries(snapshots, urnsOf(projectBranches)),
+      bSeries: snapshotSeries(snapshots, urnsOf(otherBranches)),
+    }));
+  } else {
+    blocks.push(`
+      <div class="card">
+        <p class="empty-state" style="text-align:left; padding:0;">
+          Region-wide comparison needs the all-London GIAS spine loaded. Only
+          ${escapeHtml(String(otherBranches.length))} non-project
+          ${otherBranches.length === 1 ? "borough is" : "boroughs are"} present in the data, which
+          is too few to stand for "the rest of the region" — so the comparison is hidden rather
+          than drawn from a handful of schools.
+        </p>
+      </div>`);
+  }
+
+  if (otherMats.length >= MIN_NON_PROJECT_MATS) {
+    blocks.push(compareBlock({
+      heading: "Target trusts against other trusts",
+      aLabel: `Target MATs (${targetMats.length})`,
+      bLabel: `Other MATs (${otherMats.length})`,
+      aSeries: snapshotSeries(snapshots, urnsOf(targetMats)),
+      bSeries: snapshotSeries(snapshots, urnsOf(otherMats)),
+    }));
+  }
+
+  return blocks.join("");
+}
+
+// ---------------------------------------------------------------------------
+// Band 3 — exceptions
+// ---------------------------------------------------------------------------
+
+function exceptionsBand(result) {
+  if (result.items.length === 0) {
     return `
       <div class="card">
         <p class="empty-state" style="text-align:left; padding:0;">
-          ${series.length === 0
-            ? "No snapshots captured yet. The first is taken automatically the next time someone opens this page — change over time appears here after that."
-            : "One snapshot captured so far. Change over time appears here once there's a second to compare against, about a week from now."}
+          ${result.baselineMissing
+            ? `Nothing to flag yet — there isn't yet a snapshot on or after the ${escapeHtml(formatDate(BASELINE_DATE))} baseline with a later one to measure movement against.`
+            : "No exceptions. Project branches and target trusts are moving in line with each other."}
         </p>
       </div>`;
   }
-
-  const first = series[0];
-  const last = series[series.length - 1];
-  const cards = [
-    ["Membership", formatNumber(last.members), formatDelta(first.members, last.members), series.map((p) => p.members)],
-    ["Density (teachers)", formatPercent(last.densityTeachers), formatDelta(first.densityTeachers, last.densityTeachers, { percent: true }), series.map((p) => p.densityTeachers)],
-    ["Density (support)", formatPercent(last.densitySupport), formatDelta(first.densitySupport, last.densitySupport, { percent: true }), series.map((p) => p.densitySupport)],
-    ["Reps", formatNumber(last.reps), formatDelta(first.reps, last.reps), series.map((p) => p.reps)],
-    ["School meetings", formatNumber(meetingsTotal), null, meetingsSeries],
-  ];
-
   return `
-    <div class="tile-grid trend-grid">
-      ${cards
-        .map(
-          ([label, value, delta, values]) => `
-        <div class="tile">
-          <div class="tile-label">${escapeHtml(label)}</div>
-          <div class="tile-value">${value}</div>
-          ${delta ? `<div class="tile-delta ${delta.direction}">${escapeHtml(delta.text)} since ${escapeHtml(formatDate(first.date))}</div>` : ""}
-          <div class="tile-spark">${sparkline(values, { label })}</div>
-        </div>`
-        )
-        .join("")}
-    </div>
-    <p class="as-of trend-footnote">
-      ${series.length} snapshots across ${escapeHtml(scopeLabel)}, ${escapeHtml(formatDate(first.date))} → ${escapeHtml(formatDate(last.date))}.
-    </p>`;
-}
-
-function disputeBlock(disputes) {
-  const live = disputes.filter((d) => d.live === "Yes");
-  if (live.length === 0) {
-    return `<div class="card"><div class="empty-state">No live disputes in this scope.</div>
-      <div class="btn-row"><a class="btn" href="#/disputes">Open dispute tracker →</a></div></div>`;
-  }
-  return `
-    <div class="card">
-      ${live
-        .map(
-          (d) => `
-        <a class="note-card note-card-link" href="#/disputes/${encodeURIComponent(d.id)}">
-          <strong>${escapeHtml(d.employer)}</strong> — ${escapeHtml(d.branch)}${d.mat ? ` · ${escapeHtml(d.mat)}` : ""}
-          ${ragPill(d.outcome)}
-          <div class="note-meta">Issues: ${escapeHtml(d.issues.join(", "))} · Lead: ${escapeHtml(d.staffResponsible)} (${escapeHtml(d.rorIo)})</div>
-        </a>`
-        )
-        .join("")}
-      <div class="btn-row"><a class="btn" href="#/disputes">Open dispute tracker →</a></div>
+    <div class="card exceptions">
+      ${result.items.map((item) => `
+        <a class="exception" href="${escapeHtml(item.href)}">
+          <span class="exception-text">${escapeHtml(item.text)}</span>
+          <span class="exception-go" aria-hidden="true">→</span>
+        </a>`).join("")}
     </div>`;
 }
+
+// ---------------------------------------------------------------------------
 
 export async function render(container) {
   const state = await loadAll();
   const schools = buildSchoolLevel(state);
   const mats = buildMatLevel(schools, state);
   const branches = buildBranchLevel(schools, state);
-  const dashboard = buildProjectDashboard(branches, mats, state.disputeTracker);
 
   const lastCapture = latestSnapshotDate(state.snapshots);
   const captureAge = daysSince(lastCapture);
@@ -181,18 +374,21 @@ export async function render(container) {
   let scopeValue = readScope();
 
   function draw() {
-    const scope = resolveScope(scopeValue, {
-      dashboard, branches, mats, disputes: state.disputeTracker,
+    const scope = resolveScope(scopeValue, { branches, mats, disputes: state.disputeTracker });
+    const scopeUrns = scope.schools.map((s) => String(s.urn));
+    const series = snapshotSeries(state.snapshots, scopeUrns);
+    const base = baselinePoint(series);
+    const recent = pointWeeksBefore(series, RECENT_WEEKS);
+    const cadence = seriesCadence(series);
+
+    // The page reports as at the newest capture, not as at right now: the
+    // whole point of the cadence line is that this is a considered position.
+    const exceptions = detectExceptions({
+      branches, mats,
+      snapshots: state.snapshots,
+      meetings: state.meetings,
+      asOf: lastCapture,
     });
-    const scopeUrns = new Set(scope.schools.map((s) => String(s.urn)));
-    const series = snapshotSeries(state.snapshots, [...scopeUrns]);
-    // Meetings are dated events rather than a captured level, so the trend is
-    // a running total up to each snapshot date rather than a snapshot field.
-    const scopeMeetings = state.meetings.filter((m) => scopeUrns.has(String(m.urn)));
-    const meetingsSeries = series.map(
-      (p) => scopeMeetings.filter((m) => m.date <= p.date).length
-    );
-    const kpis = disputeKpis(scope.disputes);
 
     const scopeOptions = `
       <option value="project" ${scopeValue === "project" ? "selected" : ""}>Project overview</option>
@@ -207,70 +403,49 @@ export async function render(container) {
           .join("")}
       </optgroup>`;
 
-    const kpiBlock = scope.isProject
-      ? `
-      <div class="section-title">Project branches — ${escapeHtml(scope.projectBranchNames.join(", ") || "none set")}</div>
-      <div class="tile-grid tile-grid-compact">
-        ${tile("Membership", formatNumber(scope.pb.membersTotal))}
-        ${tile("Density (teachers)", formatPercent(scope.pb.densityTeachers))}
-        ${tile("Density (support)", formatPercent(scope.pb.densitySupport))}
-        ${tile("Density (total)", formatPercent(scope.pb.densityTotal))}
-        ${tile("No rep schools", formatNumber(scope.pb.noRepSchools))}
-        ${tile("Member:rep ratio", scope.pb.memberRepRatio)}
-        ${tile("School meetings held", formatNumber(scope.pb.schoolMeetingsHeld))}
-        ${tile("Reps recruited", formatNumber(scope.pb.repsRecruited))}
-        ${tile("Reps trained", formatNumber(scope.pb.repsTrainedSinceStart))}
-        ${tile("Live disputes", formatNumber(scope.pb.liveDisputes))}
-        ${tile("Strike days", formatNumber(scope.pb.strikeDays))}
-        ${tile("Green disputes", formatNumber(scope.pb.greenDisputes))}
-      </div>
-
-      <div class="section-title">Project MATs — ${escapeHtml(scope.projectMatNames.join(", ") || "none set")}</div>
-      <div class="tile-grid tile-grid-compact">
-        ${tile("Membership", formatNumber(scope.pm.membersTotal))}
-        ${tile("Density (teachers)", formatPercent(scope.pm.densityTeachers))}
-        ${tile("Density (support)", formatPercent(scope.pm.densitySupport))}
-        ${tile("Density (total)", formatPercent(scope.pm.densityTotal))}
-        ${tile("No rep schools", formatNumber(scope.pm.noRepSchools))}
-        ${tile("Member:rep ratio", scope.pm.memberRepRatio)}
-        ${tile("School meetings held", formatNumber(scope.pm.meetingsHeld))}
-        ${tile("Reps recruited", formatNumber(scope.pm.repsRecruited))}
-        ${tile("Live disputes", formatNumber(scope.pm.liveDisputes))}
-        ${tile("Strike days", formatNumber(scope.pm.strikeDays))}
-        ${tile("Green disputes", formatNumber(scope.pm.greenDisputes))}
-      </div>`
-      : `
-      <div class="section-title">${escapeHtml(scope.label)}</div>
-      <div class="tile-grid tile-grid-compact">
-        ${scope.metrics.map(([l, v]) => tile(l, v)).join("")}
-        ${tile("Live disputes", formatNumber(kpis.liveDisputes))}
-        ${tile("Strike days", formatNumber(kpis.strikeDays))}
-        ${tile("Green disputes", formatNumber(kpis.greenDisputes))}
-      </div>`;
+    const cadenceLine = cadence.count === 0
+      ? "No snapshots captured yet — figures below are current values with no history behind them."
+      : `As at ${formatDate(cadence.last)} · ${cadence.count} weekly `
+        + `${cadence.count === 1 ? "snapshot" : "snapshots"} since ${formatDate(cadence.first)}`;
 
     container.innerHTML = `
       <div class="topbar">
-        <h1>Project dashboard</h1>
-        <div class="as-of">Data as of ${formatDate(state.asOfDate)}</div>
+        <h1>Dashboard</h1>
+        <div class="as-of">Baseline ${escapeHtml(formatDate(BASELINE_DATE))}</div>
       </div>
+
+      <p class="cadence-line">${escapeHtml(cadenceLine)}</p>
 
       <div class="filter-bar scope-bar">
         <label for="scope-select"><strong>Showing</strong></label>
         <select id="scope-select">${scopeOptions}</select>
       </div>
-
-      <div class="section-title">Change over time — ${escapeHtml(scope.label)}</div>
-      ${impactSection(series, scope.label, meetingsSeries, scopeMeetings.length)}
       ${
         lastCapture && captureAge > 42
           ? `<div class="mock-banner">Last snapshot was ${captureAge} days ago. Weekly capture may have stopped — see docs/scheduled-snapshot.md.</div>`
           : ""
       }
 
-      ${kpiBlock}
+      <div class="section-title">Outcomes — ${escapeHtml(scope.label)}</div>
+      ${outcomesBand(scope, series, base, recent)}
 
-      <div class="section-title">Live disputes — ${escapeHtml(scope.label)}</div>
-      ${disputeBlock(scope.disputes)}
+      ${scope.isProject ? `
+        <div class="section-title">Compared with the rest of the region</div>
+        ${comparisonSection(branches, mats, state.snapshots)}` : ""}
+
+      <div class="section-title">Activity — what we did</div>
+      <div class="band-grid band-activity">
+        ${scope.activity.map((a) => `
+          <div class="tile tile-compact">
+            <div class="tile-label">${escapeHtml(a.label)}</div>
+            <div class="tile-value">${escapeHtml(a.value)}</div>
+          </div>`).join("")}
+      </div>
+      <p class="band-caveat">Logged in this app rather than imported, which is why these two are
+        dependable and why nothing else sits alongside them.</p>
+
+      <div class="section-title">Exceptions — where to look</div>
+      ${exceptionsBand(exceptions)}
     `;
 
     container.querySelector("#scope-select").addEventListener("change", (e) => {

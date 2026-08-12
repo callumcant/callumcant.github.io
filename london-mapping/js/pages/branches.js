@@ -73,7 +73,6 @@ export async function renderDetail(container, { name }) {
       <div class="tile"><div class="tile-label">Members in no-rep schools</div><div class="tile-value">${formatNumber(branch.membersInNoRepSchools)}</div></div>
       <div class="tile"><div class="tile-label">School meetings held</div><div class="tile-value">${branch.schoolMeetingsHeld}</div></div>
       <div class="tile"><div class="tile-label">Reps recruited</div><div class="tile-value">${branch.repsRecruited}</div></div>
-      <div class="tile"><div class="tile-label">Reps trained</div><div class="tile-value">${branch.repsTrainedSinceStart}</div></div>
     </div>
 
     ${

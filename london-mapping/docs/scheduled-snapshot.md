@@ -30,22 +30,33 @@ date.
    **Scheduled cloud flow**.
 2. Set it to repeat **every 1 week** — pick a quiet time, e.g. Sunday 03:00.
 3. Add **Excel Online (Business) → List rows present in a table**, pointing at
-   the workbook in SharePoint and the `SourceNEUDashboard` table.
+   the workbook in SharePoint and the `SourceStratum` table. This is the one
+   that matters: Stratum is the source for **both** membership and headcount,
+   split teacher / leadership / support.
 4. Add **Excel Online (Business) → List rows present in a table** again for
-   `WCtoURN` (the workplace-code → URN mapping) and `SourceWorkforce`.
-5. Loop over the membership rows, and for each one add **Excel Online
-   (Business) → Add a row into a table** against `Snapshots`, mapping:
+   `WCtoURN` (the workplace-code → URN mapping) and for `SourcePayDashboard`,
+   which is where the rep count lives.
+5. Loop over the `SourceStratum` rows, and for each one add **Excel Online
+   (Business) → Add a row into a table** against `Snapshots`, mapping all
+   eleven columns:
 
    | Snapshots column | Source |
    |---|---|
    | Snapshot date | `utcNow('yyyy-MM-dd')` |
    | URN | matched from `WCtoURN` on workplace code |
-   | Overall members | `SourceNEUDashboard` → Overall members |
-   | Rep count | `SourceNEUDashboard` → Rep count |
-   | Workforce headcount | `SourceWorkforce` → Workforce headcount |
-   | Voted | `SourceNEUDashboard` → Voted |
-   | Volunteers | `SourceNEUDashboard` → Volunteers |
-   | WP conversations | `SourceNEUDashboard` → WP conversations |
+   | Membership (total) | `SourceStratum` → Membership (total) |
+   | Membership (teachers) | `SourceStratum` → Membership (teachers) |
+   | Membership (leadership) | `SourceStratum` → Membership (leadership) |
+   | Membership (support) | `SourceStratum` → Membership (support) |
+   | Headcount (total) | `SourceStratum` → Headcount (total) |
+   | Headcount (teachers) | `SourceStratum` → Headcount (teachers) |
+   | Headcount (leadership) | `SourceStratum` → Headcount (leadership) |
+   | Headcount (support) | `SourceStratum` → Headcount (support) |
+   | Rep count | `SourcePayDashboard` → Rep count, matched on workplace code |
+
+   Write every column. Density is calculated from the membership and headcount
+   pairs, so a snapshot missing its headcount figures records membership that
+   can never be turned back into a density.
 
 **Worth knowing before you start:**
 
@@ -85,6 +96,8 @@ governance question for your organisation, not a technical one.
 
 ## How to tell whether it's working
 
-The dashboard shows the number of snapshots and their date range under "Change
-over time". If capture stops, that range stops moving, and after six weeks
-without a snapshot the dashboard shows a warning banner.
+The line directly under the dashboard's heading gives the date of the newest
+snapshot, how many there are, and the span they cover — for example "As at
+11 October 2026 · 10 weekly snapshots since 9 August 2026". If capture stops,
+that line stops moving, and after six weeks without a snapshot the dashboard
+shows a warning banner.

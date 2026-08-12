@@ -18,6 +18,12 @@ import { buildSchoolLevel } from "./rollups.js";
 const CAPTURE_INTERVAL_DAYS = 7;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+// Every "since" comparison on the dashboard runs from here: the first data
+// upload. Defined once so it changes in one place — a delta measured from a
+// different starting line in two places on the same page is worse than no
+// delta at all.
+export const BASELINE_DATE = "2026-08-09";
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -107,6 +113,42 @@ export function snapshotSeries(snapshots, urns = null) {
       densityTeachers: p.headcountTeachers ? p.membersTeachers / p.headcountTeachers : null,
       densitySupport: p.headcountSupport ? p.membersSupport / p.headcountSupport : null,
     }));
+}
+
+// The comparison point for "since the baseline": the earliest snapshot taken
+// on or after the baseline date.
+//
+// Deliberately returns null rather than falling back to the first available
+// snapshot. Quietly comparing against whatever happens to be earliest would
+// produce a delta measured from an unstated starting line, which reads as
+// authoritative and isn't. The page says so instead.
+export function baselinePoint(series, baselineDate = BASELINE_DATE) {
+  const index = series.findIndex((p) => p.date >= baselineDate);
+  if (index === -1) return null;
+  // A baseline that is also the newest snapshot has nothing to compare to yet.
+  if (index === series.length - 1) return null;
+  return series[index];
+}
+
+// The most recent snapshot at least `weeks` before the newest one — the short
+// comparison that sits alongside the baseline figure. Nulls out rather than
+// reaching for the oldest point when the series is too short to span it.
+export function pointWeeksBefore(series, weeks = 4) {
+  if (series.length < 2) return null;
+  const latest = series[series.length - 1];
+  const cutoff = new Date(`${latest.date}T00:00:00Z`).getTime() - weeks * 7 * MS_PER_DAY;
+  let found = null;
+  for (const point of series.slice(0, -1)) {
+    if (new Date(`${point.date}T00:00:00Z`).getTime() <= cutoff) found = point;
+  }
+  return found;
+}
+
+// Distinct capture dates and the span they cover, for the cadence line that
+// tells a reader this is a considered position rather than a live feed.
+export function seriesCadence(series) {
+  if (series.length === 0) return { count: 0, first: null, last: null };
+  return { count: series.length, first: series[0].date, last: series[series.length - 1].date };
 }
 
 let captureAttempted = false;

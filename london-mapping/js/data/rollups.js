@@ -249,6 +249,31 @@ function mergePay(a, b) {
   };
 }
 
+// The same measures over any arbitrary set of schools — a branch, a trust, the
+// project as a whole, or everything outside it. The dashboard runs every scope
+// through this one function so a regional figure and a branch figure are
+// genuinely the same calculation, and density goes through densities() like
+// everywhere else rather than being averaged.
+export function summariseSchools(schools) {
+  const members = sumMembers(schools);
+  const headcount = sumHeadcount(schools);
+  const reps = sum(schools, (s) => s.repCount);
+  return {
+    schoolCount: schools.length,
+    membersTotal: members.total,
+    membersTeachers: members.teachers,
+    membersLeadership: members.leadership,
+    membersSupport: members.support,
+    headcountTotal: headcount.total,
+    ...densities(members, headcount),
+    reps,
+    memberRepRatio: reps === 0 ? "No reps" : `1:${Math.round(members.total / reps)}`,
+    noRepSchools: schools.filter((s) => s.repCount === 0).length,
+    meetingsHeld: sum(schools, (s) => s.meetingsLogged),
+    repsRecruited: sum(schools, (s) => s.repsRecruitedLogged),
+  };
+}
+
 export function buildMatLevel(schools, state) {
   const byTrust = new Map();
   for (const s of schools) {

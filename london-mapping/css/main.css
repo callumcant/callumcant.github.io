@@ -739,6 +739,126 @@ table.data-table.sticky-first td:first-child::after {
 .trend-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .trend-footnote { margin: var(--space-2) 0 0; }
 
+/* Dashboard bands (js/pages/dashboard.js)
+   Band 1 tiles are roughly twice the linear size of band 2's, so the eye sorts
+   importance before reading anything. Outcomes are what changed; activity is
+   what we did. Rendering them the same size invites mistaking effort for
+   impact, which is the failure mode this layout exists to prevent. */
+.band-grid { display: grid; gap: var(--space-4); }
+/* 200px rather than 240px so the four outcome tiles hold one row on a laptop
+   instead of breaking 3 + 1, which reads as one tile being an afterthought. */
+.band-outcomes { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.band-activity {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 220px));
+  gap: var(--space-3);
+}
+.tile-outcome { padding: var(--space-6); }
+.tile-outcome .tile-value { font-size: var(--text-3xl); }
+.tile-hint {
+  font-size: var(--text-2xs);
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+}
+.tile-hint-quiet { color: var(--text-muted); font-style: italic; }
+/* The 4-week figure is a check on the baseline figure, not a rival to it. */
+.tile-delta-minor {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  margin-top: 2px;
+  color: var(--text-secondary);
+}
+.tile-delta-minor.up { color: var(--color-success); }
+.tile-delta-minor.down { color: var(--color-critical); }
+.tile-delta-minor.flat { color: var(--text-muted); }
+a.tile-linked { display: block; text-decoration: none; color: inherit; }
+a.tile-linked:hover { border-color: var(--accent); }
+
+.cadence-line {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+.band-caveat {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  max-width: 76ch;
+}
+
+.density-split { margin-top: var(--space-3); }
+.density-split summary {
+  cursor: pointer;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  width: fit-content;
+}
+.density-split .split-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.split-label {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-secondary);
+  margin-right: var(--space-2);
+}
+
+/* Project vs rest-of-region comparison */
+.compare-heading {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  margin-bottom: var(--space-3);
+}
+.compare-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 132px) 1fr 1fr;
+  gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-3) 0;
+  border-top: var(--border-width) solid var(--gridline);
+}
+.compare-measure {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-secondary);
+  padding-top: var(--space-1);
+}
+.compare-cell-label { font-size: var(--text-2xs); color: var(--text-secondary); }
+.compare-cell-value {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 700px) {
+  .compare-row { grid-template-columns: 1fr 1fr; }
+  .compare-measure { grid-column: 1 / -1; padding-top: 0; }
+}
+
+/* Exceptions — a list, not a grid. Short by design: this is the part people
+   act on, so a thin week shows fewer items rather than padded ones. */
+.exceptions { padding: 0; }
+.exception {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: var(--border-width) solid var(--gridline);
+  text-decoration: none;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+.exception:last-child { border-bottom: none; }
+.exception:hover { background: var(--surface-page); }
+.exception-go { color: var(--accent); font-weight: var(--weight-bold); }
+
 .scope-bar { align-items: center; }
 .scope-bar label { font-size: var(--text-xs); color: var(--text-secondary); }
 .scope-bar select { min-width: 260px; }
