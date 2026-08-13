@@ -1431,6 +1431,118 @@ dialog.micro-form h2 {
 .legend-swatch.legend-dot-md { width: 11px; height: 11px; }
 .legend-swatch.legend-dot-lg { width: 15px; height: 15px; }
 
+/* The legend carries three encodings at once — colour, size and fill — so each
+   gets a captioned group rather than one undifferentiated row of swatches. */
+/* The gap BETWEEN groups has to beat the gap inside one, or the three
+   encodings read as a single run-on strip of swatches. */
+.map-legend { gap: var(--space-3) calc(var(--space-4) * 2); }
+.map-legend-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.map-legend-caption {
+  margin-right: var(--space-1);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--weight-semibold);
+}
+.map-legend-note {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-muted);
+}
+
+/* Map beside its list of names. Reading names while seeing positions is what
+   makes the map usable for planning a day of visits. */
+.map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-3);
+  align-items: start;
+}
+.map-list {
+  height: min(62vh, 620px);
+  min-height: 380px;
+  overflow-y: auto;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  font-size: var(--text-xs);
+}
+.map-list-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-card);
+  border-bottom: var(--border-width) solid var(--border);
+  color: var(--text-secondary);
+  font-weight: var(--weight-semibold);
+}
+.map-list-head span:last-child {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.map-list-items { list-style: none; margin: 0; padding: 0; }
+.map-list-items li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border);
+}
+.map-list-items a { overflow-wrap: anywhere; }
+.map-list-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex: none;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+/* Filled vs hollow, matching the markers and the quadrant. The glyph carries
+   the meaning on its own; the colour only reinforces it. */
+.map-list-rep { color: var(--accent); }
+.map-list-rep.no-rep { color: var(--color-warning); }
+.map-list-cap { margin: 0; padding: var(--space-3); color: var(--text-muted); }
+
+/* Cluster icons. markercluster's own palette encodes count and contradicts the
+   legend, so MarkerCluster.Default.css is never loaded and these are the only
+   cluster styles in play — the swatch comes from the same scale as the points. */
+.map-cluster { background: none; border: 0; }
+.map-cluster-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--swatch);
+  color: var(--swatch-text);
+  border: 2px solid var(--surface-card);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.map-cluster-lg .map-cluster-inner { font-size: var(--text-xs); }
+
+@media (max-width: 900px) {
+  .map-layout { grid-template-columns: minmax(0, 1fr); }
+  .map-list { height: auto; max-height: 320px; min-height: 0; }
+}
+
 .plain-list { margin: 0; padding-left: var(--space-5); }
 .plain-list li { padding: 2px 0; }
 

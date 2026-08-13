@@ -178,6 +178,7 @@ export async function renderDetail(container, { name }) {
     <div class="section-title">Schools in this trust</div>
     <div class="btn-row" style="margin-top:0;">
       <button class="btn btn-small" id="export-mat-schools">Export CSV</button>
+      <a class="btn btn-small" href="#/map?trust=${encodeURIComponent(mat.name)}">View on map</a>
     </div>
     <div class="card"><div id="mat-schools-table"></div></div>
 

@@ -412,6 +412,42 @@ export function showToast(message, { actionLabel, onAction, duration = 6000 } = 
   return dismiss;
 }
 
+// --- Theme ------------------------------------------------------------------
+// Almost nothing in the app needs to know the theme in JavaScript — CSS tokens
+// handle it. The exception is anything drawn by a third-party library that
+// can't read our custom properties: the map's tile layer picks a light or dark
+// basemap and has to be told which.
+//
+// The precedence mirrors css/tokens.css exactly: an explicit data-theme on
+// <html> wins in BOTH directions, and the OS preference only decides when
+// there's no attribute. Nothing sets that attribute today; this is written so
+// that a theme toggle, if one is ever added, needs no changes here.
+export function prefersDark() {
+  const attr = document.documentElement.getAttribute("data-theme");
+  if (attr === "dark") return true;
+  if (attr === "light") return false;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+}
+
+// Calls `fn(isDark)` whenever the effective theme changes. Returns an
+// unsubscribe — callers that live inside a page must call it on teardown, or
+// the listener outlives the page it was drawing.
+export function onThemeChange(fn) {
+  const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+  const handler = () => fn(prefersDark());
+  media?.addEventListener("change", handler);
+
+  // The attribute overrides the media query, so a toggle that only sets the
+  // attribute would otherwise fire nothing.
+  const observer = new MutationObserver(handler);
+  observer.observe(document.documentElement, { attributeFilter: ["data-theme"] });
+
+  return () => {
+    media?.removeEventListener("change", handler);
+    observer.disconnect();
+  };
+}
+
 // --- Sparkline -------------------------------------------------------------
 // A trend line small enough to sit inside a stat tile. Deliberately spare:
 // 2px stroke, no axes, no gridlines, no dots — it shows shape, and the tile's

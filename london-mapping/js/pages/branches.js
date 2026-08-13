@@ -92,6 +92,7 @@ export async function renderDetail(container, { name }) {
     <div class="section-title">Schools in ${escapeHtml(branch.name)}</div>
     <div class="btn-row" style="margin-top:0;">
       <button class="btn btn-small" id="export-branch-schools">Export CSV</button>
+      <a class="btn btn-small" href="#/map?branch=${encodeURIComponent(branch.name)}">View on map</a>
     </div>
     <div class="card"><div id="branch-schools-table"></div></div>
 
