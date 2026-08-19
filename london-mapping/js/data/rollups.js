@@ -104,10 +104,6 @@ export function buildSchoolLevel(state) {
   for (const m of state.meetings) {
     meetingsByUrn.set(String(m.urn), (meetingsByUrn.get(String(m.urn)) || 0) + 1);
   }
-  const recruitedByUrn = new Map();
-  for (const r of state.repsRecruited) {
-    recruitedByUrn.set(String(r.urn), (recruitedByUrn.get(String(r.urn)) || 0) + 1);
-  }
 
   // A school is in dispute if its URN is listed on a live dispute — exact,
   // rather than inferred from the dispute's branch or MAT.
@@ -165,7 +161,7 @@ export function buildSchoolLevel(state) {
         headName: [school.headTitle, school.headFirstName, school.headLastName]
           .filter(Boolean).join(" "),
 
-        // --- Stratum: headcount and membership, the density inputs ---
+        // --- Stratum: headcount, membership and reps ---
         workplaceCode: st.workplaceCode ?? pay.workplaceCode ?? "",
         headcountTotal: headcount.total,
         headcountTeachers: headcount.teachers,
@@ -175,11 +171,11 @@ export function buildSchoolLevel(state) {
         membersTeachers: members.teachers,
         membersLeadership: members.leadership,
         membersSupport: members.support,
+        repCount: st.repCount ?? 0,
         stratumExportDate: st.exportDate ?? null,
         ...densities(members, headcount),
 
-        // --- Pay Dashboard: ballots, engagement, reps ---
-        repCount: pay.repCount ?? 0,
+        // --- Pay Dashboard: ballots and engagement ---
         membersVoted2026: pay.membersVoted2026 ?? null,
         membersVoted2025: pay.membersVoted2025 ?? null,
         membersVoted2024: pay.membersVoted2024 ?? null,
@@ -215,7 +211,6 @@ export function buildSchoolLevel(state) {
 
         // --- Derived from app activity ---
         meetingsLogged: meetingsByUrn.get(key) || 0,
-        repsRecruitedLogged: recruitedByUrn.get(key) || 0,
         noteCount: notes.length,
         lastNoteDate: lastNote?.date ?? null,
         latestNoteTitle: lastNote?.title ?? null,
@@ -236,13 +231,13 @@ function mergeStratum(a, b) {
     membersTeachers: (a.membersTeachers || 0) + (b.membersTeachers || 0),
     membersLeadership: (a.membersLeadership || 0) + (b.membersLeadership || 0),
     membersSupport: (a.membersSupport || 0) + (b.membersSupport || 0),
+    repCount: (a.repCount || 0) + (b.repCount || 0),
   };
 }
 
 function mergePay(a, b) {
   return {
     ...a,
-    repCount: (a.repCount || 0) + (b.repCount || 0),
     volunteers: (a.volunteers || 0) + (b.volunteers || 0),
     wpConversations: (a.wpConversations || 0) + (b.wpConversations || 0),
     activeSEVs: (a.activeSEVs || 0) + (b.activeSEVs || 0),
@@ -270,7 +265,6 @@ export function summariseSchools(schools) {
     memberRepRatio: reps === 0 ? "No reps" : `1:${Math.round(members.total / reps)}`,
     noRepSchools: schools.filter((s) => s.repCount === 0).length,
     meetingsHeld: sum(schools, (s) => s.meetingsLogged),
-    repsRecruited: sum(schools, (s) => s.repsRecruitedLogged),
   };
 }
 
@@ -337,7 +331,6 @@ export function buildMatLevel(schools, state) {
       repCommitteeSince: committee.since,
       repCommitteeReported: committee.reported,
       meetingsHeld: sum(matSchools, (s) => s.meetingsLogged),
-      repsRecruited: sum(matSchools, (s) => s.repsRecruitedLogged),
       noteCount: notes.length,
       lastNoteDate: lastNote?.date ?? null,
       latestNoteTitle: lastNote?.title ?? null,
@@ -395,7 +388,6 @@ export function buildBranchLevel(schools, state) {
       // Derived from the Meetings event log rather than a hand-kept counter, so
       // it carries a trend and can be drilled into.
       schoolMeetingsHeld: sum(branchSchools, (s) => s.meetingsLogged),
-      repsRecruited: sum(branchSchools, (s) => s.repsRecruitedLogged),
       // Still manual: rep *training* data is a later pipeline and is not the
       // same thing as recruitment.
       repsTrainedSinceStart: facts.repsTrainedSinceStart ?? 0,
@@ -451,7 +443,6 @@ export function buildProjectDashboard(branches, mats, disputes) {
       noRepSchools: sum(projectBranches, (b) => b.noRepSchools),
       memberRepRatio: branchReps === 0 ? "No reps" : `1:${Math.round(branchMembers.total / branchReps)}`,
       schoolMeetingsHeld: sum(projectBranches, (b) => b.schoolMeetingsHeld),
-      repsRecruited: sum(projectBranches, (b) => b.repsRecruited),
       repsTrainedSinceStart: sum(projectBranches, (b) => b.repsTrainedSinceStart),
       ...disputeKpis(branchDisputes),
     },
@@ -463,7 +454,6 @@ export function buildProjectDashboard(branches, mats, disputes) {
       memberRepRatio: matReps === 0 ? "No reps" : `1:${Math.round(matMembers.total / matReps)}`,
       repCommittees: projectMats.filter((m) => m.repCommitteeExists).length,
       meetingsHeld: sum(projectMats, (m) => m.meetingsHeld),
-      repsRecruited: sum(projectMats, (m) => m.repsRecruited),
       ...disputeKpis(matDisputes),
     },
     branchList: projectBranches,

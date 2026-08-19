@@ -30,7 +30,6 @@ const state = {
   branchFacts: [],
   matFacts: [],
   meetings: [],
-  repsRecruited: [],
   repCommittees: [],
   snapshots: [],
   schoolGeo: [],
@@ -53,7 +52,6 @@ export async function loadAll() {
     state.branchFacts = mock.branchFacts;
     state.matFacts = mock.matFacts;
     state.meetings = [...mock.meetings];
-    state.repsRecruited = [...mock.repsRecruited];
     state.repCommittees = [...mock.repCommittees];
     state.snapshots = [...mock.snapshots];
     state.schoolGeo = [...mock.schoolGeo];
@@ -104,12 +102,6 @@ export async function updateDispute(id, patch) {
 
 export async function addMeeting({ date, urn, loggedBy }) {
   return appendRow("Meetings", "meetings", { id: `m${Date.now()}`, date, urn, loggedBy });
-}
-
-export async function addRepRecruited({ date, urn, repName, loggedBy }) {
-  return appendRow("RepsRecruited", "repsRecruited", {
-    id: `r${Date.now()}`, date, urn, repName, loggedBy,
-  });
 }
 
 // Append-only, like every other reporter: changing a trust's committee status

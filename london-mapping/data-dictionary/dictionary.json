@@ -28,12 +28,14 @@
     {
       "name": "No rep schools",
       "formula": "count of schools where Rep count = 0",
-      "source": "Derived"
+      "source": "Derived",
+      "notes": "Rep count is a Stratum field. A school missing from the Stratum export reads as zero reps."
     },
     {
       "name": "Rep:member ratio",
       "formula": "summed membership / summed rep count",
-      "source": "Derived"
+      "source": "Derived",
+      "notes": "Rep count is a Stratum field."
     },
     {
       "name": "Number of notes",
@@ -43,11 +45,6 @@
     {
       "name": "School meetings held",
       "formula": "count of Meetings rows in scope",
-      "source": "Derived"
-    },
-    {
-      "name": "Reps recruited",
-      "formula": "count of RepsRecruited rows in scope",
       "source": "Derived"
     },
     {
@@ -238,9 +235,9 @@
     },
     {
       "name": "SourceStratum",
-      "description": "Stratum membership export. The authoritative source for BOTH headcount and membership, split teacher/leadership/support. Density is derived from these.",
+      "description": "Stratum membership export. The authoritative source for headcount, membership AND reps. Density is derived from the headcount/membership pairs.",
       "editedByApp": false,
-      "note": "Paste your Stratum export here (the 'Full Membership List for Stats purposes' report). This is the primary source for headcount and membership — the workforce survey's headcount is treated as a third-party cross-check. Not edited by the app.",
+      "note": "Paste your Stratum export here (the 'Full Membership List for Stats purposes' report). This is the primary source for headcount, membership and rep count — the workforce survey's headcount is treated as a third-party cross-check. Not edited by the app.",
       "fields": [
         {
           "key": "workplaceCode",
@@ -324,6 +321,15 @@
           "spine": "Matched to GIAS via Workplace code to URN conversion"
         },
         {
+          "key": "repCount",
+          "header": "Rep count",
+          "type": "number",
+          "source": "Stratum",
+          "inDictionary": false,
+          "spine": "Matched to GIAS via Workplace code to URN conversion",
+          "notes": "The authoritative rep figure. 'No rep schools', 'Rep coverage' and 'Rep:member ratio' all derive from it. Moved here from the Pay Dashboard export, which used to carry it."
+        },
+        {
           "key": "exportDate",
           "header": "Export date",
           "type": "date",
@@ -344,14 +350,15 @@
         6,
         1,
         12,
+        1,
         "2026-07-21"
       ]
     },
     {
       "name": "SourcePayDashboard",
-      "description": "NEU Pay Dashboard export. Source for ballot participation, organising engagement and rep count.",
+      "description": "NEU Pay Dashboard export. Source for ballot participation and organising engagement.",
       "editedByApp": false,
-      "note": "Paste your NEU Pay Dashboard export here. Membership and headcount now come from Stratum instead — this source covers ballots, engagement and rep count. Not edited by the app.",
+      "note": "Paste your NEU Pay Dashboard export here. Membership and headcount come from Stratum, and so does the rep count — this source covers ballots and engagement. Not edited by the app.",
       "fields": [
         {
           "key": "workplaceCode",
@@ -369,15 +376,6 @@
           "inDictionary": false,
           "spine": "Matched to GIAS via Workplace code to URN conversion",
           "notes": "Carried beyond the dictionary."
-        },
-        {
-          "key": "repCount",
-          "header": "Rep count",
-          "type": "number",
-          "source": "Pay Dashboard",
-          "inDictionary": false,
-          "spine": "Matched to GIAS via Workplace code to URN conversion",
-          "notes": "Not listed in the dictionary, but 'No rep schools' and 'Rep:member ratio' derive from it. Confirmed as a Pay Dashboard field."
         },
         {
           "key": "membersVoted2026",
@@ -539,7 +537,6 @@
       "example": [
         "WP020292",
         "EXAMPLE Rachel McMillan Nursery School",
-        1,
         14,
         12,
         10,
@@ -1099,7 +1096,7 @@
           "type": "number",
           "source": "Derived",
           "inDictionary": false,
-          "notes": "Manual until training data is pipelined in. Distinct from reps RECRUITED, which is an event log."
+          "notes": "Manual until training data is pipelined in. Distinct from the rep count, which comes from Stratum."
         }
       ],
       "dv": {
@@ -1190,59 +1187,6 @@
         "m1",
         "2026-01-20",
         100097,
-        "EXAMPLE Organiser"
-      ]
-    },
-    {
-      "name": "RepsRecruited",
-      "description": "Append-only log of reps recruited.",
-      "editedByApp": true,
-      "note": "Written by the app from a school's page. Distinct from reps TRAINED, which is still a manual figure on BranchFacts.",
-      "fields": [
-        {
-          "key": "id",
-          "header": "ID",
-          "type": "text",
-          "source": "App form",
-          "inDictionary": false
-        },
-        {
-          "key": "date",
-          "header": "Date",
-          "type": "date",
-          "source": "App form",
-          "inDictionary": true,
-          "spine": "URN linked form"
-        },
-        {
-          "key": "urn",
-          "header": "URN",
-          "type": "number",
-          "source": "App form",
-          "inDictionary": true,
-          "spine": "URN linked form"
-        },
-        {
-          "key": "repName",
-          "header": "Rep name",
-          "type": "text",
-          "source": "App form",
-          "inDictionary": true,
-          "spine": "URN linked form"
-        },
-        {
-          "key": "loggedBy",
-          "header": "Logged by",
-          "type": "text",
-          "source": "App form",
-          "inDictionary": false
-        }
-      ],
-      "example": [
-        "r1",
-        "2026-01-22",
-        100097,
-        "EXAMPLE Rep",
         "EXAMPLE Organiser"
       ]
     },
