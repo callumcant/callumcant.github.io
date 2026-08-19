@@ -863,12 +863,23 @@ table.data-table.sticky-first td:first-child::after {
   color: var(--text-secondary);
   margin-bottom: var(--space-3);
 }
+/* Says what the right-hand column of the chart is, once, instead of repeating
+   the baseline date on all three rows. */
+.level-density-note {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: var(--weight-regular);
+  color: var(--text-muted);
+  margin-left: var(--space-2);
+}
 /* One measure across three groups, so one colour — these are magnitudes of the
    same thing, not separate identities that would need distinguishing hues. */
 /* Keeps a legible minimum on a phone and scrolls inside the card instead of
    scaling the labels down to seven pixels — same treatment as the quadrant. */
 .density-scroll { overflow-x: auto; }
-.density-bars { display: block; width: 100%; min-width: 420px; height: auto; }
+/* Bumped with the chart's own width when the change column was added, so the
+   labels keep the same on-screen size on a phone rather than shrinking. */
+.density-bars { display: block; width: 100%; min-width: 500px; height: auto; }
 .dbar-label, .dbar-value, .dbar-ref-label { font-family: var(--font-ui); }
 .dbar-label { fill: var(--text-secondary); font-size: 13px; }
 .dbar-value {
@@ -877,6 +888,16 @@ table.data-table.sticky-first td:first-child::after {
   font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
 }
+/* The arrow inside the text is what carries direction; the colour only
+   reinforces it, so the row still reads without hue. */
+.dbar-delta {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-muted);
+}
+.dbar-delta.up { fill: var(--color-success); }
+.dbar-delta.down { fill: var(--color-critical); }
 .dbar-track { fill: var(--gridline); opacity: 0.55; }
 .dbar-fill { fill: var(--accent-hover); }
 .dbar-ref { stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
@@ -1286,29 +1307,6 @@ a.tile-linked:hover { border-color: var(--accent); }
   font-size: var(--text-xs);
   color: var(--text-muted);
   max-width: 76ch;
-}
-
-.density-split { margin-top: var(--space-3); }
-.density-split summary {
-  cursor: pointer;
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  width: fit-content;
-}
-.density-split .split-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-6);
-  margin-top: var(--space-2);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-}
-.split-label {
-  font-size: var(--text-2xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wider);
-  color: var(--text-secondary);
-  margin-right: var(--space-2);
 }
 
 /* Project vs rest-of-region comparison */

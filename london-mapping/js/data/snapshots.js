@@ -108,18 +108,21 @@ export function snapshotSeries(snapshots, urns = null) {
     if (urnFilter && !urnFilter.has(String(s.urn))) continue;
     if (!byDate.has(s.snapshotDate)) {
       byDate.set(s.snapshotDate, {
-        date: s.snapshotDate, members: 0, membersTeachers: 0, membersSupport: 0,
-        reps: 0, headcount: 0, headcountTeachers: 0, headcountSupport: 0, schools: 0,
+        date: s.snapshotDate, members: 0, membersTeachers: 0, membersLeadership: 0,
+        membersSupport: 0, reps: 0, headcount: 0, headcountTeachers: 0,
+        headcountLeadership: 0, headcountSupport: 0, schools: 0,
         schoolsWithRep: 0, membersUnrepresented: 0,
       });
     }
     const point = byDate.get(s.snapshotDate);
     point.members += s.membersTotal || 0;
     point.membersTeachers += s.membersTeachers || 0;
+    point.membersLeadership += s.membersLeadership || 0;
     point.membersSupport += s.membersSupport || 0;
     point.reps += s.repCount || 0;
     point.headcount += s.headcountTotal || 0;
     point.headcountTeachers += s.headcountTeachers || 0;
+    point.headcountLeadership += s.headcountLeadership || 0;
     point.headcountSupport += s.headcountSupport || 0;
     point.schools += 1;
     // Rep coverage and unrepresented membership have to be counted per school
@@ -137,6 +140,7 @@ export function snapshotSeries(snapshots, urns = null) {
       density: p.headcount ? p.members / p.headcount : null,
       repCoverage: p.schools ? p.schoolsWithRep / p.schools : null,
       densityTeachers: p.headcountTeachers ? p.membersTeachers / p.headcountTeachers : null,
+      densityLeadership: p.headcountLeadership ? p.membersLeadership / p.headcountLeadership : null,
       densitySupport: p.headcountSupport ? p.membersSupport / p.headcountSupport : null,
     }));
 }
