@@ -31,11 +31,11 @@ date.
 2. Set it to repeat **every 1 week** — pick a quiet time, e.g. Sunday 03:00.
 3. Add **Excel Online (Business) → List rows present in a table**, pointing at
    the workbook in SharePoint and the `SourceStratum` table. This is the one
-   that matters: Stratum is the source for **both** membership and headcount,
-   split teacher / leadership / support.
+   that matters: Stratum is the source for membership and headcount, split
+   teacher / leadership / support, and for the rep count.
 4. Add **Excel Online (Business) → List rows present in a table** again for
-   `WCtoURN` (the workplace-code → URN mapping) and for `SourcePayDashboard`,
-   which is where the rep count lives.
+   `WCtoURN` (the workplace-code → URN mapping). That is the only other table
+   the flow needs — every figure it writes comes from `SourceStratum`.
 5. Loop over the `SourceStratum` rows, and for each one add **Excel Online
    (Business) → Add a row into a table** against `Snapshots`, mapping all
    eleven columns:
@@ -52,7 +52,7 @@ date.
    | Headcount (teachers) | `SourceStratum` → Headcount (teachers) |
    | Headcount (leadership) | `SourceStratum` → Headcount (leadership) |
    | Headcount (support) | `SourceStratum` → Headcount (support) |
-   | Rep count | `SourcePayDashboard` → Rep count, matched on workplace code |
+   | Rep count | `SourceStratum` → Rep count |
 
    Write every column. Density is calculated from the membership and headcount
    pairs, so a snapshot missing its headcount figures records membership that

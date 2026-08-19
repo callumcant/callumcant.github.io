@@ -160,15 +160,15 @@ function resolveScope(scopeValue, { branches, mats, disputes }) {
         noTrend: "Not captured in snapshots — the tracker holds the history",
       },
     ],
-    // Only these two. Reps trained has no data source and would read zero
-    // forever; workplace conversations aren't logged consistently enough to
-    // trust; active SEVs aren't something an organiser controls. The test is
-    // that an IO both drives it and records it reliably, and today nothing
-    // else passes. Both of these come from the app's own event logs, which is
-    // exactly why they're dependable.
+    // Just the one. Reps recruited used to sit here, but reps now come from the
+    // weekly Stratum export, so rep movement is an outcome with a trend rather
+    // than an activity someone remembered to log — it lives in the Reps tile
+    // above. Reps trained has no data source and would read zero forever;
+    // workplace conversations aren't logged consistently enough to trust; active
+    // SEVs aren't something an organiser controls. The test is that an IO both
+    // drives it and records it reliably, and today only meetings pass.
     activity: [
       { key: "meetings", label: "Workplace meetings held", value: formatNumber(summary.meetingsHeld) },
-      { key: "recruited", label: "Reps recruited", value: formatNumber(summary.repsRecruited) },
     ],
   };
 }

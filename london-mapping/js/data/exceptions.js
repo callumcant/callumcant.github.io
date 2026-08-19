@@ -28,6 +28,11 @@ const STALE_ACTIVITY_WEEKS = 6;
 const MIN_DENSITY_POINTS = 1.0;   // percentage points
 const MIN_MEMBERSHIP_CHANGE = 5;  // members
 
+// Reps come from the weekly Stratum export, so a branch total drifts by one
+// almost every week as people take up and give up the role. A single rep is
+// movement, not a story; two is worth a conversation.
+const MIN_REPS_CHANGE = 2;        // reps
+
 // Ranked worst-first. Anything falling beats anything stalled, which beats a
 // standout gain — a gain is only ever included to stop a healthy region
 // rendering an empty box.
@@ -128,7 +133,7 @@ export function detectExceptions({
       }
 
       const repsDrop = base.reps - latest.reps;
-      if (repsDrop > 0) {
+      if (repsDrop >= MIN_REPS_CHANGE) {
         found.push({
           kind: "reps-fall",
           magnitude: repsDrop,

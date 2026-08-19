@@ -1,4 +1,4 @@
-import { loadAll, addMeeting, addRepRecruited, removeEventLog } from "../data/store.js";
+import { loadAll, addMeeting, removeEventLog } from "../data/store.js";
 import { buildSchoolLevel } from "../data/rollups.js";
 import {
   renderDataTable, renderColumnControls, loadColumnPrefs, saveColumnPrefs,
@@ -113,7 +113,6 @@ function schoolColumns() {
     { key: "activeSEVs", label: "Active SEVs", num: true },
 
     { key: "meetingsLogged", label: "Meetings logged", num: true },
-    { key: "repsRecruitedLogged", label: "Reps recruited", num: true },
     // The note's title is the useful link text; a bare count told you nothing
     // about whether the note was worth opening.
     { key: "latestNoteTitle", label: "Latest note", wrap: true,
@@ -149,7 +148,7 @@ const PRESETS = {
     keys: ["schoolName", "laName", "repCount", "volunteers", "wpConversations",
            "repRecruitedVolunteer", "joinedCommunity", "completedActivateAction",
            "agreedToBriefing", "holdAMeeting", "needsSupport", "pledgedToVote",
-           "activeSEVs", "meetingsLogged", "repsRecruitedLogged"],
+           "activeSEVs", "meetingsLogged"],
   },
   workforce: {
     label: "Workforce",
@@ -176,7 +175,7 @@ const PICKER_GROUPS = [
   { label: "Membership & density", keys: ["membersTotal", "membersTeachers", "membersLeadership", "membersSupport", "densityTotal", "densityTeachers", "densityLeadership", "densitySupport"] },
   { label: "Ballots", keys: ["membersVoted2026", "turnout2026", "membersVoted2025", "membersVoted2024"] },
   { label: "Organising engagement", keys: ["repCount", "volunteers", "wpConversations", "repRecruitedVolunteer", "joinedCommunity", "completedActivateAction", "agreedToBriefing", "holdAMeeting", "needsSupport", "pledgedToVote", "activeSEVs"] },
-  { label: "Activity", keys: ["meetingsLogged", "repsRecruitedLogged", "latestNoteTitle", "noteCount", "lastNoteDate"] },
+  { label: "Activity", keys: ["meetingsLogged", "latestNoteTitle", "noteCount", "lastNoteDate"] },
 ];
 
 export async function renderList(container, params = {}) {
@@ -497,8 +496,6 @@ export async function renderDetail(container, { urn }) {
     .sort((a, b) => (a.date < b.date ? 1 : -1));
   const meetings = state.meetings.filter((m) => String(m.urn) === String(urn))
     .sort((a, b) => (a.date < b.date ? 1 : -1));
-  const recruited = state.repsRecruited.filter((r) => String(r.urn) === String(urn))
-    .sort((a, b) => (a.date < b.date ? 1 : -1));
 
   const websiteHref = school.schoolWebsite
     ? (/^https?:/.test(school.schoolWebsite) ? school.schoolWebsite : "https://" + school.schoolWebsite)
@@ -541,17 +538,15 @@ export async function renderDetail(container, { urn }) {
 
     <div class="btn-row" style="margin-top:0;">
       <button class="btn btn-primary" id="log-meeting">+ Log meeting</button>
-      <button class="btn" id="log-rep">+ Log rep recruited</button>
-      <a class="btn" href="#/notes/new?level=School&subject=${school.urn}">+ Add note</a>
+      <a class="btn" href="#/notes/new?level=School&subject=${school.urn}&return=${encodeURIComponent(`/schools/${school.urn}`)}">+ Add note</a>
     </div>
 
     <div class="section-title">Activity log</div>
     <div class="card">
-      ${meetings.length === 0 && recruited.length === 0
+      ${meetings.length === 0
         ? `<div class="empty-state">Nothing logged for this school yet.</div>`
         : `<dl class="stat-list">
             ${meetings.map((m) => statRow("Meeting", formatDate(m.date) + (m.loggedBy ? ` · ${escapeHtml(m.loggedBy)}` : ""))).join("")}
-            ${recruited.map((r) => statRow("Rep recruited", `${escapeHtml(r.repName || "(name not recorded)")} — ${formatDate(r.date)}` + (r.loggedBy ? ` · logged by ${escapeHtml(r.loggedBy)}` : ""))).join("")}
           </dl>`}
     </div>
 
@@ -564,7 +559,7 @@ export async function renderDetail(container, { urn }) {
           <div class="note-meta">${formatDate(n.date)} · ${escapeHtml(n.author)}</div>
         </div>`).join("")}
       <div class="btn-row">
-        <a class="btn" href="#/notes/new?level=School&subject=${school.urn}">+ Add note</a>
+        <a class="btn" href="#/notes/new?level=School&subject=${school.urn}&return=${encodeURIComponent(`/schools/${school.urn}`)}">+ Add note</a>
         ${notes.length ? `<a class="btn" href="#/notes?level=School&subject=${school.urn}">View in notes</a>` : ""}
       </div>
     </div>
@@ -577,7 +572,6 @@ export async function renderDetail(container, { urn }) {
       <div class="tile"><div class="tile-label">Density (support)</div><div class="tile-value">${formatPercent(school.densitySupport)}</div></div>
       <div class="tile"><div class="tile-label">Reps</div><div class="tile-value">${school.repCount}</div></div>
       <div class="tile"><div class="tile-label">Meetings logged</div><div class="tile-value">${school.meetingsLogged}</div></div>
-      <div class="tile"><div class="tile-label">Reps recruited</div><div class="tile-value">${school.repsRecruitedLogged}</div></div>
     </div>
 
     <div class="section-title">Headcount, membership &amp; density (Stratum)</div>
@@ -659,15 +653,11 @@ export async function renderDetail(container, { urn }) {
   // Date is pre-filled with today so the common case is still one keystroke.
   const today = new Date().toISOString().slice(0, 10);
 
-  async function afterLog(kind, record, label) {
+  async function afterLog(record, label) {
     showToast(label, {
       actionLabel: "Undo",
       onAction: async () => {
-        await removeEventLog(
-          kind === "meeting" ? "Meetings" : "RepsRecruited",
-          kind === "meeting" ? "meetings" : "repsRecruited",
-          record.id
-        );
+        await removeEventLog("Meetings", "meetings", record.id);
         renderDetail(container, { urn });
       },
     });
@@ -682,23 +672,7 @@ export async function renderDetail(container, { urn }) {
       onSubmit: async ({ date }) => {
         const loggedBy = await getSignedInName();
         const record = await addMeeting({ date, urn: school.urn, loggedBy });
-        afterLog("meeting", record, `Meeting logged for ${school.schoolName}`);
-      },
-    });
-  });
-
-  container.querySelector("#log-rep").addEventListener("click", () => {
-    openMicroForm({
-      title: `Log a rep recruited — ${school.schoolName}`,
-      submitLabel: "Log rep",
-      fields: [
-        { name: "repName", label: "Rep's name", type: "text", required: true, placeholder: "e.g. Dana Whitlock" },
-        { name: "date", label: "Date recruited", type: "date", required: true, value: today },
-      ],
-      onSubmit: async ({ repName, date }) => {
-        const loggedBy = await getSignedInName();
-        const record = await addRepRecruited({ date, urn: school.urn, repName: repName.trim(), loggedBy });
-        afterLog("rep", record, `${repName.trim()} logged as a new rep at ${school.schoolName}`);
+        afterLog(record, `Meeting logged for ${school.schoolName}`);
       },
     });
   });

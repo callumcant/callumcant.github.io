@@ -160,7 +160,7 @@ blocked-CDN fallback; both are expected locally.
 - After `await`, check the element you're about to write into is still
   connected — the router replaces the *children* of `#content`, so the outer
   container stays connected even after navigation.
-- Reporters (meetings, reps recruited, rep committee, notes, disputes) work in
+- Reporters (meetings, rep committee, notes, disputes) work in
   preview mode, writing to in-memory state that doesn't persist. Don't disable
   them in preview; nothing else is disabled.
 - **Table sort lives in a caller-owned `sortState` object**, passed to
@@ -179,6 +179,15 @@ blocked-CDN fallback; both are expected locally.
   mid-keystroke.
 - CSV filenames come from `csvFilename(scope, kind)`, which slugifies and dates
   them. Don't hand-build a filename.
+- **Reps come from Stratum, and the app collects no rep data of its own.**
+  `repCount` is a column on `SourceStratum`, refreshed weekly, and it is the
+  only rep figure anywhere in the app. There used to be a `RepsRecruited` event
+  log and a "+ Log rep recruited" button; both were dropped in favour of the
+  authoritative source. Two consequences, both accepted on purpose: rep
+  movement is *net*, so a school that recruits two and loses two reads zero;
+  and no organiser's name is attached to a recruitment any more. "Reps since
+  the baseline" comes from the `repCount` column in `Snapshots`, which has been
+  captured all along.
 - **`state.snapshots` is a window, not the whole history.** Against a real
   workbook `readSnapshotWindow` in `graph-client.js` loads the last 12 weekly
   captures plus the baseline week, because `Snapshots` grows by one row per
@@ -210,8 +219,10 @@ flag to flip. `workbookUrl` is already set. Outstanding:
   there is no client secret.
 - **The workbook must be populated** from the generated template.
 - Stratum's real column headers are still unknown — `SourceStratum` is a
-  designed guess. When the real export arrives it's a `dictionary.json` edit
-  plus regeneration.
+  designed guess, and it now carries the rep count as well as membership and
+  headcount. When the real export arrives it's a `dictionary.json` edit plus
+  regeneration. Whoever produces the export needs telling that the weekly
+  report must include a rep count per workplace code.
 - **Watch the console on the first real load.** Two things in `graph-client.js`
   have only ever run against an in-memory stub, because they need a live
   workbook: the windowed snapshot read, and the `dataBodyRange?$select=rowCount`
@@ -271,6 +282,15 @@ release are worth writing defensively (`handle.setItems?.(…)`) for that window
 - The Schools "All branches" filter actually filters `laName` (borough). A
   separate `branchName` ("NEU branch") column exists. The label and the field
   disagree; needs a decision on which one the filter should mean.
+- `repCount` falls back to `0` when a school has no `SourceStratum` row, so
+  "missing from the export" and "genuinely has no rep" are indistinguishable:
+  the school counts in `noRepSchools`, drags `repCoveragePercent` down and
+  renders hollow on the map. Such a school also shows zero membership and zero
+  density, so it is visibly broken by other means — but the rep figure alone
+  does not say so.
+- `buildProjectDashboard` in `js/data/rollups.js` has no importer anywhere. It
+  is dead code, along with the project-level `repCommittees` count that only it
+  computes.
 - `repsTrainedSinceStart` has no data source. It's retained in the dictionary,
   schema and rollups for when training data arrives, but is not displayed.
 - Michal's bargaining-dashboard link from MAT pages needs a URL pattern from

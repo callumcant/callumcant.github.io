@@ -74,7 +74,6 @@ export async function renderDetail(container, { name }) {
       },
       footerHtml: [
         footerStat("Meetings held", formatNumber(branch.schoolMeetingsHeld)),
-        footerStat("Reps recruited", formatNumber(branch.repsRecruited)),
         footerStat("Member:rep ratio", branch.memberRepRatio),
       ].join(""),
     })}
@@ -105,7 +104,7 @@ export async function renderDetail(container, { name }) {
           <div class="note-meta">${formatDate(n.date)} · ${escapeHtml(n.author)}</div>
         </div>`).join("")}
       <div class="btn-row">
-        <a class="btn" href="#/notes/new?level=Branch&subject=${encodeURIComponent(name)}">+ Add note</a>
+        <a class="btn" href="#/notes/new?level=Branch&subject=${encodeURIComponent(name)}&return=${encodeURIComponent(`/branches/${encodeURIComponent(name)}`)}">+ Add note</a>
         ${notes.length ? `<a class="btn" href="#/notes?level=Branch&subject=${encodeURIComponent(name)}">View in notes</a>` : ""}
       </div>
     </div>
