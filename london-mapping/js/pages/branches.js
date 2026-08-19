@@ -1,10 +1,15 @@
 import { loadAll } from "../data/store.js";
-import { buildSchoolLevel, buildBranchLevel } from "../data/rollups.js";
+import { buildSchoolLevel, buildBranchLevel, meetingAttendees } from "../data/rollups.js";
 import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml, downloadCsv, csvFilename, barCell } from "../ui.js";
 import { renderQuadrant } from "../ui/quadrant.js";
 import { renderSearchSelect } from "../ui/search-select.js";
 import { levelHeaderHtml, headlineTiles, footerStat } from "../ui/level-header.js";
 import { snapshotSeries, baselinePoint } from "../data/snapshots.js";
+
+// How much of the meeting log a branch page shows before you ask for the rest.
+// Enough to answer "what's been happening lately" without the section
+// out-growing the schools table underneath it.
+const MEETINGS_SHOWN = 5;
 
 export async function renderList(container) {
   const state = await loadAll();
@@ -51,6 +56,16 @@ export async function renderDetail(container, { name }) {
 
   const series = snapshotSeries(state.snapshots, branch.schools.map((s) => String(s.urn)));
 
+  // The count alone doesn't say whether a branch is meeting everywhere or in
+  // one school over and over, so the branch gets the log itself. Meeting rows
+  // carry a URN and no school name, so join through the branch's own schools —
+  // which also scopes the list to this branch.
+  const schoolNameByUrn = new Map(branch.schools.map((s) => [String(s.urn), s.schoolName]));
+  const branchMeetings = state.meetings
+    .filter((m) => schoolNameByUrn.has(String(m.urn)))
+    .map((m) => ({ ...m, schoolName: schoolNameByUrn.get(String(m.urn)) }))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+
   container.innerHTML = `
     <div class="breadcrumb"><a href="#/branches">← Branches</a></div>
     <div class="topbar"><h1>${escapeHtml(branch.name)}${branch.isProjectBranch ? " ⭐ Project branch" : ""}</h1></div>
@@ -73,7 +88,8 @@ export async function renderDetail(container, { name }) {
         support: branch.densitySupport,
       },
       footerHtml: [
-        footerStat("Meetings held", formatNumber(branch.schoolMeetingsHeld)),
+        footerStat("Meetings & 1-2-1s", formatNumber(branch.schoolMeetingsHeld)),
+        footerStat("People taking part", formatNumber(branch.meetingAttendeesTotal)),
         footerStat("Member:rep ratio", branch.memberRepRatio),
       ].join(""),
     })}
@@ -87,6 +103,19 @@ export async function renderDetail(container, { name }) {
 
     <div class="section-title">Organising quadrant</div>
     <div class="card"><div id="branch-quadrant"></div></div>
+
+    <div class="section-title">Meetings and 1-2-1s</div>
+    ${branchMeetings.length === 0
+      ? `<div class="card"><div class="empty-state">No meetings or 1-2-1s logged in this branch yet.</div></div>`
+      : `<div class="btn-row" style="margin-top:0;">
+           <button class="btn btn-small" id="export-branch-meetings">Export CSV</button>
+         </div>
+         <div class="card">
+           <div id="branch-meetings-table"></div>
+           ${branchMeetings.length > MEETINGS_SHOWN
+             ? `<div class="btn-row"><button class="btn btn-small" id="show-all-meetings">Show all ${formatNumber(branchMeetings.length)} meetings and 1-2-1s</button></div>`
+             : ""}
+         </div>`}
 
     <div class="section-title">Schools in ${escapeHtml(branch.name)}</div>
     <div class="btn-row" style="margin-top:0;">
@@ -113,6 +142,44 @@ export async function renderDetail(container, { name }) {
   renderQuadrant(container.querySelector("#branch-quadrant"), branch.schools, {
     title: `${branch.name} organising quadrant`,
   });
+
+  if (branchMeetings.length) {
+    const meetingColumns = [
+      // formatDate gives "12 Oct 2026", which sorts alphabetically into
+      // nonsense — so sorting works off the raw ISO string underneath.
+      { key: "date", label: "Date", render: (r) => formatDate(r.date), sortValue: (r) => r.date, csv: (r) => r.date },
+      { key: "schoolName", label: "School",
+        render: (r) => `<a class="row-link" href="#/schools/${r.urn}">${escapeHtml(r.schoolName)}</a>` },
+      { key: "attendees", label: "Took part", num: true,
+        render: (r) => (meetingAttendees(r) == null ? "—" : formatNumber(meetingAttendees(r))),
+        sortValue: (r) => meetingAttendees(r),
+        csv: (r) => (meetingAttendees(r) == null ? "" : meetingAttendees(r)) },
+      { key: "loggedBy", label: "Logged by" },
+    ];
+
+    // Sort lives out here so it survives the redraw when "Show all" is clicked.
+    const meetingSort = { key: "date", dir: "desc" };
+    const tableEl = container.querySelector("#branch-meetings-table");
+    const drawMeetings = (limit) =>
+      renderDataTable(tableEl, meetingColumns, branchMeetings, {
+        sortState: meetingSort,
+        // The "Show all" button below is this table's own cap note.
+        capNote: false,
+        ...(limit ? { maxRows: limit } : {}),
+      });
+
+    drawMeetings(MEETINGS_SHOWN);
+
+    container.querySelector("#show-all-meetings")?.addEventListener("click", (e) => {
+      drawMeetings(null);
+      e.target.remove();
+    });
+
+    container.querySelector("#export-branch-meetings").addEventListener("click", () => {
+      // Always the whole log, never just what's on screen.
+      downloadCsv(csvFilename(branch.name, "meetings"), meetingColumns, branchMeetings);
+    });
+  }
 
   // Hoisted out of the renderDataTable call so the export can reuse exactly the
   // columns on screen. `csv` carries the raw fraction rather than the "41.2%"

@@ -168,7 +168,15 @@ function resolveScope(scopeValue, { branches, mats, disputes }) {
     // SEVs aren't something an organiser controls. The test is that an IO both
     // drives it and records it reliably, and today only meetings pass.
     activity: [
-      { key: "meetings", label: "Workplace meetings held", value: formatNumber(summary.meetingsHeld) },
+      {
+        key: "meetings",
+        label: "Meetings & 1-2-1s held",
+        value: formatNumber(summary.meetingsHeld),
+        // Attendance rides with the count rather than taking a tile of its own:
+        // 40 conversations with 45 people is a different picture from 40 with
+        // 400, and the two figures only mean anything side by side.
+        note: `${formatNumber(summary.meetingAttendeesTotal)} people took part`,
+      },
     ],
   };
 }
@@ -449,6 +457,7 @@ export async function render(container) {
           <div class="tile tile-compact">
             <div class="tile-label">${escapeHtml(a.label)}</div>
             <div class="tile-value">${escapeHtml(a.value)}</div>
+            ${a.note ? `<div class="tile-note">${escapeHtml(a.note)}</div>` : ""}
           </div>`).join("")}
       </div>
       <p class="band-caveat">Logged in this app rather than imported, which is why these two are

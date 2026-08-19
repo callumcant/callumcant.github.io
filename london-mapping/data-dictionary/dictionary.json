@@ -45,7 +45,14 @@
     {
       "name": "School meetings held",
       "formula": "count of Meetings rows in scope",
-      "source": "Derived"
+      "source": "Derived",
+      "notes": "Counts 1-2-1s and small group conversations as well as workplace meetings — they all go in the same log."
+    },
+    {
+      "name": "Meeting attendees",
+      "formula": "sum of Attendees across Meetings rows in scope",
+      "source": "Derived",
+      "notes": "Blank on meetings logged before the Attendees column existed, so the total reads as a floor rather than an exact figure."
     },
     {
       "name": "Number of schools (dispute)",
@@ -1148,9 +1155,9 @@
     },
     {
       "name": "Meetings",
-      "description": "Append-only log of school meetings held.",
+      "description": "Append-only log of conversations held with members and reps — workplace meetings, 1-2-1s and small group conversations alike. One row per conversation.",
       "editedByApp": true,
-      "note": "Written by the app from a school's page. Branch and project meeting counts derive from this — do not keep a separate tally.",
+      "note": "Written by the app from a school's page. Branch and project meeting counts derive from this — do not keep a separate tally. Attendees is the organiser's count on the day and may be approximate; it is blank on rows logged before that column existed.",
       "fields": [
         {
           "key": "id",
@@ -1181,13 +1188,22 @@
           "type": "text",
           "source": "App form",
           "inDictionary": false
+        },
+        {
+          "key": "attendees",
+          "header": "Attendees",
+          "type": "number",
+          "source": "App form",
+          "inDictionary": true,
+          "spine": "URN linked form"
         }
       ],
       "example": [
         "m1",
         "2026-01-20",
         100097,
-        "EXAMPLE Organiser"
+        "EXAMPLE Organiser",
+        18
       ]
     },
     {
