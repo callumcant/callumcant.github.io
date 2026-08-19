@@ -12,7 +12,7 @@ def js(o): return json.dumps(o, ensure_ascii=False)
 
 # ---------------------------------------------------------------------------
 # The original 16 schools. URNs 200001-200016 are load-bearing: field notes,
-# disputes, meetings and reps all reference them by URN, and 200015/200016 plus
+# disputes and meetings all reference them by URN, and 200015/200016 plus
 # WP900001/WP200012B are the seeded anomalies the Anomalies page demonstrates.
 # Leave these alone; add new schools below instead.
 # ---------------------------------------------------------------------------
@@ -156,7 +156,7 @@ SIZES = {
     "secondary": ((100, 140), 0.57),
 }
 
-# profile -> (density range, 2026 turnout range, rep count range)
+# profile -> (density range, 2026 turnout range, Stratum rep count range)
 PROFILES = {
     "strong":  ((0.52, 0.72), (0.62, 0.88), (1, 2)),
     "core":    ((0.24, 0.34), (0.58, 0.84), (0, 1)),
@@ -182,27 +182,31 @@ DIOCESE_BY_BOROUGH = {
     "Kensington and Chelsea": "Archdiocese of Westminster",
 }
 
-# urn -> (hc_total, hc_teach, hc_lead, hc_supp, mem_total, mem_teach, mem_lead, mem_supp)
+# urn -> (hc_total, hc_teach, hc_lead, hc_supp, mem_total, mem_teach, mem_lead,
+#         mem_supp, reps)
+# reps is the rep count Stratum carries per workplace, and it is the only rep
+# figure the app has. It used to sit on the Pay Dashboard rows next to a
+# hand-kept RepsRecruited log; both are gone.
 STRATUM = {
-    200001:(42,18,3,21,19,11,1,7), 200002:(118,68,10,40,21,15,1,5),
-    200003:(96,55,8,33,34,24,3,7), 200004:(19,5,1,13,9,4,1,4),
-    200005:(48,20,3,25,16,9,1,6),  200006:(132,74,11,47,44,30,4,10),
-    200007:(39,16,3,20,8,5,0,3),   200008:(44,19,3,22,17,10,1,6),
-    200009:(121,70,10,41,38,27,3,8), 200010:(37,15,3,19,6,4,0,2),
-    200011:(45,19,3,23,14,9,1,4),  200012:(109,61,9,39,41,29,4,8),
-    200013:(41,17,3,21,12,8,1,3),  200014:(126,71,10,45,33,23,3,7),
-    200015:(0,0,0,0,4,3,0,1),      # closed but retains members
+    200001:(42,18,3,21,19,11,1,7,1), 200002:(118,68,10,40,21,15,1,5,0),
+    200003:(96,55,8,33,34,24,3,7,1), 200004:(19,5,1,13,9,4,1,4,1),
+    200005:(48,20,3,25,16,9,1,6,1),  200006:(132,74,11,47,44,30,4,10,2),
+    200007:(39,16,3,20,8,5,0,3,0),   200008:(44,19,3,22,17,10,1,6,1),
+    200009:(121,70,10,41,38,27,3,8,1), 200010:(37,15,3,19,6,4,0,2,0),
+    200011:(45,19,3,23,14,9,1,4,1),  200012:(109,61,9,39,41,29,4,8,2),
+    200013:(41,17,3,21,12,8,1,3,1),  200014:(126,71,10,45,33,23,3,7,1),
+    200015:(0,0,0,0,4,3,0,1,0),      # closed but retains members
 }
 
-# urn -> (repCount, voted26, voted25, voted24, turnout26, volunteers, conv, activeSEV)
+# urn -> (voted26, voted25, voted24, turnout26, volunteers, conv, activeSEV)
 PAY = {
-    200001:(1,15,14,12,0.79,3,6,2), 200002:(0,2,0,0,0.10,1,2,0),
-    200003:(1,26,25,20,0.76,4,9,2), 200004:(1,6,6,5,0.67,2,3,1),
-    200005:(1,11,10,8,0.69,2,5,1),  200006:(2,38,36,30,0.86,5,12,3),
-    200007:(0,1,0,0,0.13,1,1,0),    200008:(1,12,11,9,0.71,2,4,1),
-    200009:(1,31,30,26,0.82,3,8,2), 200010:(0,1,0,0,0.17,0,1,0),
-    200011:(1,9,8,7,0.64,2,3,1),    200012:(2,34,32,28,0.83,4,10,3),
-    200013:(1,8,7,6,0.67,2,4,1),    200014:(1,22,20,18,0.67,3,6,2),
+    200001:(15,14,12,0.79,3,6,2), 200002:(2,0,0,0.10,1,2,0),
+    200003:(26,25,20,0.76,4,9,2), 200004:(6,6,5,0.67,2,3,1),
+    200005:(11,10,8,0.69,2,5,1),  200006:(38,36,30,0.86,5,12,3),
+    200007:(1,0,0,0.13,1,1,0),    200008:(12,11,9,0.71,2,4,1),
+    200009:(31,30,26,0.82,3,8,2), 200010:(1,0,0,0.17,0,1,0),
+    200011:(9,8,7,0.64,2,3,1),    200012:(34,32,28,0.83,4,10,3),
+    200013:(8,7,6,0.67,2,4,1),    200014:(22,20,18,0.67,3,6,2),
 }
 
 # urn -> (headcountThirdParty, turnover, ptr, meanPay, vacancies, sickDays,
@@ -252,13 +256,15 @@ for (urn, name, typ, phase, boro, trust, pc, size, profile, pay_mode) in NEW_SCH
     mem_supp = round(hc_supp * density * 0.80)
     mem = mem_teach + mem_lead + mem_supp
 
-    STRATUM[urn] = (hc, hc_teach, hc_lead, hc_supp, mem, mem_teach, mem_lead, mem_supp)
+    # Every school gets a rep count, because Stratum covers every workplace.
+    # The Pay Dashboard doesn't, which is exactly why the rep figure moved here.
+    reps = rng.randint(r_lo, r_hi)
+    STRATUM[urn] = (hc, hc_teach, hc_lead, hc_supp, mem, mem_teach, mem_lead, mem_supp, reps)
 
     if pay_mode != "none":
         turnout = None if pay_mode == "no-turnout" else round(rng.uniform(t_lo, t_hi), 2)
         voted26 = round(mem * turnout) if turnout is not None else 0
-        reps = rng.randint(r_lo, r_hi)
-        PAY[urn] = (reps, voted26, max(0, voted26 - rng.randint(0, 3)),
+        PAY[urn] = (voted26, max(0, voted26 - rng.randint(0, 3)),
                     max(0, voted26 - rng.randint(2, 6)), turnout,
                     max(0, reps + rng.randint(0, 3)), rng.randint(1, 12), rng.randint(0, 3))
 
@@ -312,25 +318,30 @@ for i,(urn,name,typ,phase,boro,relig,dioc,trust,spons,feds,pc,status) in enumera
 L.append("];\n")
 
 L.append("export const sourceStratum = [")
-for urn,(ht,htt,hl,hs,mt,mtt,ml,ms) in STRATUM.items():
+for urn,(ht,htt,hl,hs,mt,mtt,ml,ms,rc) in STRATUM.items():
     nm = next(s[1] for s in SCHOOLS if s[0]==urn)
     L.append("  " + js({"workplaceCode":f"WP{urn}","workplaceName":nm,"headcountTotal":ht,
         "headcountTeachers":htt,"headcountLeadership":hl,"headcountSupport":hs,"membersTotal":mt,
-        "membersTeachers":mtt,"membersLeadership":ml,"membersSupport":ms,"exportDate":"2026-07-21"}) + ",")
+        "membersTeachers":mtt,"membersLeadership":ml,"membersSupport":ms,"repCount":rc,
+        "exportDate":"2026-07-21"}) + ",")
 # extra code for 200012 (duplicate-code anomaly) and an unmatched code
 L.append("  " + js({"workplaceCode":"WP200012B","workplaceName":"Tooting Bec Academy (sixth form)","headcountTotal":14,
     "headcountTeachers":9,"headcountLeadership":1,"headcountSupport":4,"membersTotal":6,"membersTeachers":5,
-    "membersLeadership":0,"membersSupport":1,"exportDate":"2026-07-21"}) + ",")
+    "membersLeadership":0,"membersSupport":1,"repCount":0,"exportDate":"2026-07-21"}) + ",")
 L.append("  " + js({"workplaceCode":"WP900001","workplaceName":"Unknown workplace (no URN mapping)","headcountTotal":30,
     "headcountTeachers":16,"headcountLeadership":2,"headcountSupport":12,"membersTotal":11,"membersTeachers":8,
-    "membersLeadership":1,"membersSupport":2,"exportDate":"2026-07-21"}) + ",")
+    "membersLeadership":1,"membersSupport":2,"repCount":1,"exportDate":"2026-07-21"}) + ",")
 L.append("];\n")
 
 L.append("export const sourcePayDashboard = [")
-for urn,(rc,v26,v25,v24,t26,vol,conv,sev) in PAY.items():
+for urn,(v26,v25,v24,t26,vol,conv,sev) in PAY.items():
     nm = next(s[1] for s in SCHOOLS if s[0]==urn)
     boro = next(s[4] for s in SCHOOLS if s[0]==urn)
-    L.append("  " + js({"workplaceCode":f"WP{urn}","workplaceName":nm,"repCount":rc,"membersVoted2026":v26,
+    # The Pay Dashboard no longer carries a rep count. These four columns are
+    # engagement counters that happen to correlate with having a rep, so they
+    # read the authoritative Stratum figure rather than one of their own.
+    rc = STRATUM[urn][8]
+    L.append("  " + js({"workplaceCode":f"WP{urn}","workplaceName":nm,"membersVoted2026":v26,
         "membersVoted2025":v25,"membersVoted2024":v24,"turnout2026":t26,"volunteers":vol,"wpConversations":conv,
         "activeSEVs":sev,"repRecruitedVolunteer":max(0,rc-1),"joinedCommunity":round(vol*0.5),
         "completedActivateAction":round(conv*1.6),"agreedToBriefing":1 if rc else 0,"holdAMeeting":1 if rc else 0,
@@ -427,13 +438,6 @@ for mid,d,urn in [("m1","2026-08-19",200001),("m2","2026-09-16",200001),("m3","2
     L.append("  " + js({"id":mid,"date":d,"urn":urn,"loggedBy":"Amara O."}) + ",")
 L.append("];\n")
 
-L.append("export const repsRecruited = [")
-for rid,d,urn,nm in [("r1","2026-06-20",200001,"Dana Whitlock"),("r2","2026-07-11",200006,"Femi Adebayo"),
-                     ("r3","2026-08-02",200012,"Sarah Lindqvist"),("r4","2026-07-24",200017,"Gareth Pemberton"),
-                     ("r5","2026-08-01",200036,"Ines Carvalho")]:
-    L.append("  " + js({"id":rid,"date":d,"urn":urn,"repName":nm,"loggedBy":"Jide K."}) + ",")
-L.append("];\n")
-
 L.append('''// Two trusts have reported a committee through the app; the rest fall back to
 // the MatFacts column. Orchard Hill is the case worth having in sample data:
 // MatFacts says it has a committee, but a later report says it stopped, so the
@@ -495,13 +499,13 @@ L.append("export const snapshots = [")
 for wk in range(SNAPSHOT_WEEKS):
     d = SNAPSHOT_START + datetime.timedelta(weeks=wk)
     progress = wk / (SNAPSHOT_WEEKS - 1)
-    for urn,(ht,htt,hl,hs,mt,mtt,ml,ms) in STRATUM.items():
+    for urn,(ht,htt,hl,hs,mt,mtt,ml,ms,reps) in STRATUM.items():
         start, end = BOROUGH_TRAJECTORY.get(BOROUGH_BY_URN.get(urn), FLAT)
         # A little deterministic wobble, so a sparkline reads as a real series
         # rather than a ruled line.
         wobble = 1 + (random.Random(urn * 100 + wk).uniform(-0.012, 0.012) if wk < SNAPSHOT_WEEKS - 1 else 0)
         factor = (start + (end - start) * progress) * wobble
-        rc = PAY.get(urn,(0,))[0]
+        rc = reps
         if urn in REP_SWITCH:
             before, switch = REP_SWITCH[urn]
             rc = before if wk < switch else rc
