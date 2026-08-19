@@ -1,5 +1,5 @@
 import { loadAll, addMeeting, removeEventLog } from "../data/store.js";
-import { buildSchoolLevel } from "../data/rollups.js";
+import { buildSchoolLevel, meetingAttendees } from "../data/rollups.js";
 import {
   renderDataTable, renderColumnControls, loadColumnPrefs, saveColumnPrefs,
   downloadCsv, csvFilename, showToast, openMicroForm, formatNumber, formatPercent,
@@ -537,7 +537,7 @@ export async function renderDetail(container, { urn }) {
     ${disputesCardHtml(school)}
 
     <div class="btn-row" style="margin-top:0;">
-      <button class="btn btn-primary" id="log-meeting">+ Log meeting</button>
+      <button class="btn btn-primary" id="log-meeting">+ Log meeting or 1-2-1</button>
       <a class="btn" href="#/notes/new?level=School&subject=${school.urn}&return=${encodeURIComponent(`/schools/${school.urn}`)}">+ Add note</a>
     </div>
 
@@ -546,7 +546,12 @@ export async function renderDetail(container, { urn }) {
       ${meetings.length === 0
         ? `<div class="empty-state">Nothing logged for this school yet.</div>`
         : `<dl class="stat-list">
-            ${meetings.map((m) => statRow("Meeting", formatDate(m.date) + (m.loggedBy ? ` · ${escapeHtml(m.loggedBy)}` : ""))).join("")}
+            ${meetings.map((m) => statRow(
+              "Meeting or 1-2-1",
+              formatDate(m.date)
+                + (meetingAttendees(m) == null ? "" : ` · ${formatNumber(meetingAttendees(m))} took part`)
+                + (m.loggedBy ? ` · ${escapeHtml(m.loggedBy)}` : "")
+            )).join("")}
           </dl>`}
     </div>
 
@@ -666,13 +671,29 @@ export async function renderDetail(container, { urn }) {
 
   container.querySelector("#log-meeting").addEventListener("click", () => {
     openMicroForm({
-      title: `Log a meeting — ${school.schoolName}`,
-      submitLabel: "Log meeting",
-      fields: [{ name: "date", label: "Date of meeting", type: "date", required: true, value: today }],
-      onSubmit: async ({ date }) => {
+      title: `Log a meeting or 1-2-1 — ${school.schoolName}`,
+      // Organisers read "meeting" as a workplace meeting and leave 1-2-1s
+      // unlogged, which is a large share of the actual work going unrecorded.
+      // The form has to say out loud that they belong here.
+      intro: "Workplace meetings, 1-2-1s with a rep or member, and small group conversations all belong here.",
+      submitLabel: "Log it",
+      fields: [
+        { name: "date", label: "Date", type: "date", required: true, value: today },
+        {
+          name: "attendees",
+          label: "Roughly how many people took part?",
+          type: "number",
+          required: true,
+          min: 1,
+          placeholder: "e.g. 12",
+          hint: "An estimate is fine — nearest few. A 1-2-1 is 1.",
+        },
+      ],
+      onSubmit: async ({ date, attendees }) => {
         const loggedBy = await getSignedInName();
-        const record = await addMeeting({ date, urn: school.urn, loggedBy });
-        afterLog(record, `Meeting logged for ${school.schoolName}`);
+        // FormData hands back strings; the workbook column is numeric.
+        const record = await addMeeting({ date, urn: school.urn, loggedBy, attendees: Number(attendees) });
+        afterLog(record, `Logged for ${school.schoolName}`);
       },
     });
   });

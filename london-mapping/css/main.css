@@ -1231,6 +1231,13 @@ a.quadrant-badge:hover { border-color: var(--accent); background: var(--surface-
 .tile-compact { padding: var(--space-3) var(--space-4); }
 .tile-compact .tile-value { font-size: var(--text-lg); }
 .tile-compact .tile-label { margin-bottom: var(--space-1); }
+/* Sits under the figure, for the second number that gives the first one its
+   meaning — subordinate to the value, not competing with it. */
+.tile-note {
+  margin-top: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
 
 .trend-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .trend-footnote { margin: var(--space-2) 0 0; }
@@ -1382,7 +1389,19 @@ dialog.micro-form h2 {
   font-size: var(--text-md);
   font-weight: var(--weight-bold);
 }
+.micro-form-intro {
+  margin: 0 0 var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
 .micro-form-fields { display: flex; flex-direction: column; gap: var(--space-3); }
+/* Sits under its input, so it reads as guidance on the answer rather than as
+   part of the label. */
+.field-hint {
+  margin-top: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
 
 /* Map view */
 .map-canvas {

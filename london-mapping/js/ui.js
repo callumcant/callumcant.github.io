@@ -79,6 +79,10 @@ export function barCell(value, formatted) {
 // on every keystroke, so an uncapped table makes typing unusable. Nothing is
 // unreachable when it bites: the caller's CSV export still receives the full
 // filtered set, which is the escape hatch the footer line points at.
+//
+// opts.capNote: false suppresses that footer line. For a table whose cap is a
+// deliberate "show the recent few" rather than a defence against 3,000 rows —
+// the note talks about narrowing filters, and such a table has none.
 export function renderDataTable(container, allColumns, rows, opts = {}) {
   const columns = opts.visibleKeys
     ? allColumns.filter((c) => opts.visibleKeys.has(c.key))
@@ -169,7 +173,7 @@ export function renderDataTable(container, allColumns, rows, opts = {}) {
           </tbody>
         </table>
       </div>
-      ${shown.length < sorted.length
+      ${opts.capNote !== false && shown.length < sorted.length
         ? `<p class="table-cap-note">Showing the first ${formatNumber(shown.length)} of
              ${formatNumber(sorted.length)} matches — narrow the filters, or use
              Export CSV to get all of them.</p>`
@@ -505,8 +509,11 @@ export function formatDelta(from, to, { percent = false } = {}) {
 // entry that a stray one would land in the workbook. A two-field form with an
 // explicit submit is the smallest thing that makes the action deliberate.
 //
-// `fields` is [{ name, label, type, required, value, placeholder }].
-export function openMicroForm({ title, fields, submitLabel = "Save", onSubmit }) {
+// `fields` is [{ name, label, type, required, value, placeholder, min, max, hint }].
+// `hint` renders under the input, for saying what a good answer looks like
+// rather than only what the field is called. `intro` does the same job for the
+// form as a whole — it is where a form says what belongs in it.
+export function openMicroForm({ title, intro, fields, submitLabel = "Save", onSubmit }) {
   document.querySelector("dialog.micro-form")?.remove();
 
   const dialog = document.createElement("dialog");
@@ -514,6 +521,7 @@ export function openMicroForm({ title, fields, submitLabel = "Save", onSubmit })
   dialog.innerHTML = `
     <form method="dialog">
       <h2>${escapeHtml(title)}</h2>
+      ${intro ? `<p class="micro-form-intro">${escapeHtml(intro)}</p>` : ""}
       <div class="micro-form-fields">
         ${fields
           .map(
@@ -524,7 +532,11 @@ export function openMicroForm({ title, fields, submitLabel = "Save", onSubmit })
               type="${escapeHtml(f.type || "text")}"
               ${f.required ? "required" : ""}
               ${f.value != null ? `value="${escapeHtml(f.value)}"` : ""}
+              ${f.min != null ? `min="${escapeHtml(f.min)}"` : ""}
+              ${f.max != null ? `max="${escapeHtml(f.max)}"` : ""}
+              ${f.hint ? `aria-describedby="mf-${escapeHtml(f.name)}-hint"` : ""}
               ${f.placeholder ? `placeholder="${escapeHtml(f.placeholder)}"` : ""} />
+            ${f.hint ? `<div class="field-hint" id="mf-${escapeHtml(f.name)}-hint">${escapeHtml(f.hint)}</div>` : ""}
           </div>`
           )
           .join("")}

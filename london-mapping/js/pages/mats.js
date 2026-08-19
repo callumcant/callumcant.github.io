@@ -167,7 +167,8 @@ export async function renderDetail(container, { name }) {
       },
       footerHtml: [
         footerStat("Member:rep ratio", mat.memberRepRatio),
-        footerStat("Meetings held", formatNumber(mat.meetingsHeld)),
+        footerStat("Meetings & 1-2-1s", formatNumber(mat.meetingsHeld)),
+        footerStat("People taking part", formatNumber(mat.meetingAttendeesTotal)),
         repCommitteeControl(mat),
       ].join(""),
     })}

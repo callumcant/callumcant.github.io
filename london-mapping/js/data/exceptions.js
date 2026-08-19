@@ -171,7 +171,7 @@ export function detectExceptions({
           magnitude: 999,
           name: scope.name,
           href: scope.href,
-          text: `${scope.name}: no workplace meetings logged at all`,
+          text: `${scope.name}: no meetings or 1-2-1s logged at all`,
         });
       } else if (weeks != null && weeks >= STALE_ACTIVITY_WEEKS) {
         found.push({
@@ -179,7 +179,7 @@ export function detectExceptions({
           magnitude: weeks,
           name: scope.name,
           href: scope.href,
-          text: `${scope.name}: no meetings logged in ${weeks} weeks`,
+          text: `${scope.name}: no meetings or 1-2-1s logged in ${weeks} weeks`,
         });
       }
     }

@@ -428,14 +428,19 @@ L.append("];\n")
 L.append('''// Dated across the snapshot window rather than before it, so "no meetings
 // logged in N weeks" measures a real gap. Havering's last meeting is
 // deliberately early: it is the one project branch that stops logging, which
-// is what the Exceptions band's activity-stall rule exists to catch.''')
+// is what the Exceptions band's activity-stall rule exists to catch.
+//
+// Attendees mixes the three things this log actually holds: 1-2-1s (1), small
+// group conversations, and mass meetings. m5 and m11 are null on purpose —
+// they stand for rows logged before the Attendees column existed, which is
+// what every real row will look like on the day this ships.''')
 L.append("export const meetings = [")
-for mid,d,urn in [("m1","2026-08-19",200001),("m2","2026-09-16",200001),("m3","2026-10-02",200003),
-                  ("m4","2026-09-09",200006),("m5","2026-08-26",200009),("m6","2026-09-30",200009),
-                  ("m7","2026-09-23",200008),("m8","2026-10-05",200012),("m9","2026-09-11",200036),
-                  ("m10","2026-10-07",200033),("m11","2026-08-14",200043),("m12","2026-10-01",200026),
-                  ("m13","2026-09-18",200017),("m14","2026-10-06",200038)]:
-    L.append("  " + js({"id":mid,"date":d,"urn":urn,"loggedBy":"Amara O."}) + ",")
+for mid,d,urn,att in [("m1","2026-08-19",200001,24),("m2","2026-09-16",200001,1),("m3","2026-10-02",200003,38),
+                      ("m4","2026-09-09",200006,7),("m5","2026-08-26",200009,None),("m6","2026-09-30",200009,15),
+                      ("m7","2026-09-23",200008,1),("m8","2026-10-05",200012,31),("m9","2026-09-11",200036,6),
+                      ("m10","2026-10-07",200033,12),("m11","2026-08-14",200043,None),("m12","2026-10-01",200026,2),
+                      ("m13","2026-09-18",200017,19),("m14","2026-10-06",200038,9)]:
+    L.append("  " + js({"id":mid,"date":d,"urn":urn,"loggedBy":"Amara O.","attendees":att}) + ",")
 L.append("];\n")
 
 L.append('''// Two trusts have reported a committee through the app; the rest fall back to

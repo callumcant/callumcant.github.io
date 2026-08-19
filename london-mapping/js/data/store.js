@@ -100,8 +100,11 @@ export async function updateDispute(id, patch) {
   return updated;
 }
 
-export async function addMeeting({ date, urn, loggedBy }) {
-  return appendRow("Meetings", "meetings", { id: `m${Date.now()}`, date, urn, loggedBy });
+// One row per conversation held — a workplace meeting, a 1-2-1 with a rep or
+// member, a small group. `attendees` is the organiser's count on the day, so it
+// is an estimate; rows logged before that column existed carry no figure at all.
+export async function addMeeting({ date, urn, loggedBy, attendees }) {
+  return appendRow("Meetings", "meetings", { id: `m${Date.now()}`, date, urn, loggedBy, attendees });
 }
 
 // Append-only, like every other reporter: changing a trust's committee status

@@ -16,6 +16,16 @@
 // the view layer decides what to show, not this layer.
 import { applyReconciliations, canonicalMat } from "./reconcile.js";
 
+// The attendee count on a meeting row, or null when there isn't one. Meetings
+// logged before the Attendees column existed carry no figure, and an empty
+// Excel cell arrives as "" rather than as a number — so every total built on
+// this reads as a floor, not an exact headcount.
+export function meetingAttendees(meeting) {
+  if (meeting?.attendees == null || meeting.attendees === "") return null;
+  const n = Number(meeting.attendees);
+  return Number.isFinite(n) ? n : null;
+}
+
 // Ballot "success" isn't in the source data as a flag — only the raw %. This
 // treats >=50% Yes as successful, matching common NEU ballot reporting; adjust
 // if your branches define it against the legal 50% turnout / 40% eligible tests.
@@ -101,8 +111,11 @@ export function buildSchoolLevel(state) {
   const surveyByUrn = new Map(state.sourceWorkforceSurvey.map((w) => [String(w.urn), w]));
 
   const meetingsByUrn = new Map();
+  const attendeesByUrn = new Map();
   for (const m of state.meetings) {
-    meetingsByUrn.set(String(m.urn), (meetingsByUrn.get(String(m.urn)) || 0) + 1);
+    const key = String(m.urn);
+    meetingsByUrn.set(key, (meetingsByUrn.get(key) || 0) + 1);
+    attendeesByUrn.set(key, (attendeesByUrn.get(key) || 0) + (meetingAttendees(m) ?? 0));
   }
 
   // A school is in dispute if its URN is listed on a live dispute — exact,
@@ -211,6 +224,7 @@ export function buildSchoolLevel(state) {
 
         // --- Derived from app activity ---
         meetingsLogged: meetingsByUrn.get(key) || 0,
+        meetingAttendees: attendeesByUrn.get(key) || 0,
         noteCount: notes.length,
         lastNoteDate: lastNote?.date ?? null,
         latestNoteTitle: lastNote?.title ?? null,
@@ -265,6 +279,7 @@ export function summariseSchools(schools) {
     memberRepRatio: reps === 0 ? "No reps" : `1:${Math.round(members.total / reps)}`,
     noRepSchools: schools.filter((s) => s.repCount === 0).length,
     meetingsHeld: sum(schools, (s) => s.meetingsLogged),
+    meetingAttendeesTotal: sum(schools, (s) => s.meetingAttendees),
   };
 }
 
@@ -331,6 +346,7 @@ export function buildMatLevel(schools, state) {
       repCommitteeSince: committee.since,
       repCommitteeReported: committee.reported,
       meetingsHeld: sum(matSchools, (s) => s.meetingsLogged),
+      meetingAttendeesTotal: sum(matSchools, (s) => s.meetingAttendees),
       noteCount: notes.length,
       lastNoteDate: lastNote?.date ?? null,
       latestNoteTitle: lastNote?.title ?? null,
@@ -388,6 +404,9 @@ export function buildBranchLevel(schools, state) {
       // Derived from the Meetings event log rather than a hand-kept counter, so
       // it carries a trend and can be drilled into.
       schoolMeetingsHeld: sum(branchSchools, (s) => s.meetingsLogged),
+      // A floor rather than a headcount: meetings logged before the Attendees
+      // column existed contribute nothing to it.
+      meetingAttendeesTotal: sum(branchSchools, (s) => s.meetingAttendees),
       // Still manual: rep *training* data is a later pipeline and is not the
       // same thing as recruitment.
       repsTrainedSinceStart: facts.repsTrainedSinceStart ?? 0,
@@ -443,6 +462,7 @@ export function buildProjectDashboard(branches, mats, disputes) {
       noRepSchools: sum(projectBranches, (b) => b.noRepSchools),
       memberRepRatio: branchReps === 0 ? "No reps" : `1:${Math.round(branchMembers.total / branchReps)}`,
       schoolMeetingsHeld: sum(projectBranches, (b) => b.schoolMeetingsHeld),
+      meetingAttendeesTotal: sum(projectBranches, (b) => b.meetingAttendeesTotal),
       repsTrainedSinceStart: sum(projectBranches, (b) => b.repsTrainedSinceStart),
       ...disputeKpis(branchDisputes),
     },
@@ -454,6 +474,7 @@ export function buildProjectDashboard(branches, mats, disputes) {
       memberRepRatio: matReps === 0 ? "No reps" : `1:${Math.round(matMembers.total / matReps)}`,
       repCommittees: projectMats.filter((m) => m.repCommitteeExists).length,
       meetingsHeld: sum(projectMats, (m) => m.meetingsHeld),
+      meetingAttendeesTotal: sum(projectMats, (m) => m.meetingAttendeesTotal),
       ...disputeKpis(matDisputes),
     },
     branchList: projectBranches,
