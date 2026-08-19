@@ -3,7 +3,7 @@ import { buildSchoolLevel, buildMatLevel } from "../data/rollups.js";
 import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml, showToast, downloadCsv, csvFilename, barCell } from "../ui.js";
 import { renderQuadrant } from "../ui/quadrant.js";
 import { renderSearchSelect } from "../ui/search-select.js";
-import { levelHeaderHtml, headlineTiles, footerStat } from "../ui/level-header.js";
+import { levelHeaderHtml, headlineTiles, footerStat, densityGroupDeltas } from "../ui/level-header.js";
 import { snapshotSeries, baselinePoint } from "../data/snapshots.js";
 import { logRepCommittee } from "../data/store.js";
 import { getSignedInName } from "../auth.js";
@@ -164,6 +164,7 @@ export async function renderDetail(container, { name }) {
         teachers: mat.densityTeachers,
         leadership: mat.densityLeadership,
         support: mat.densitySupport,
+        deltas: densityGroupDeltas(series, baselinePoint(series)),
       },
       footerHtml: [
         footerStat("Member:rep ratio", mat.memberRepRatio),

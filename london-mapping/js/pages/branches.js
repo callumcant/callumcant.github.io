@@ -3,7 +3,7 @@ import { buildSchoolLevel, buildBranchLevel, meetingAttendees } from "../data/ro
 import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml, downloadCsv, csvFilename, barCell } from "../ui.js";
 import { renderQuadrant } from "../ui/quadrant.js";
 import { renderSearchSelect } from "../ui/search-select.js";
-import { levelHeaderHtml, headlineTiles, footerStat } from "../ui/level-header.js";
+import { levelHeaderHtml, headlineTiles, footerStat, densityGroupDeltas } from "../ui/level-header.js";
 import { snapshotSeries, baselinePoint } from "../data/snapshots.js";
 
 // How much of the meeting log a branch page shows before you ask for the rest.
@@ -86,6 +86,7 @@ export async function renderDetail(container, { name }) {
         teachers: branch.densityTeachers,
         leadership: branch.densityLeadership,
         support: branch.densitySupport,
+        deltas: densityGroupDeltas(series, baselinePoint(series)),
       },
       footerHtml: [
         footerStat("Meetings & 1-2-1s", formatNumber(branch.schoolMeetingsHeld)),

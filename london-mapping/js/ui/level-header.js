@@ -11,6 +11,9 @@
 //   3. Density by staff group — one small bar chart, replacing four tiles and
 //      showing the teacher/support gap the tiles hid.
 //   4. Footer     — the small stuff, and on the MAT page the committee control.
+//
+// The dashboard imports part 3 on its own (densityCard), so the region-level
+// view of density by staff group is literally the same chart as a branch's.
 import { escapeHtml, formatNumber, formatPercent, formatDelta } from "../ui.js";
 import { BASELINE_DATE } from "../data/snapshots.js";
 
@@ -19,13 +22,17 @@ import { BASELINE_DATE } from "../data/snapshots.js";
 // branch would make two branches' charts look comparable when they aren't.
 const AXIS_MAX = 1;
 
-const BAR_W = 560;
+const BAR_W = 660;
 const ROW_H = 26;
 const BAR_H = 16;
 const LABEL_W = 96;
 const VALUE_W = 54;
+// Room at the right for the since-baseline change on each group. The chart got
+// wider rather than the track shorter, so the bars are the same length they
+// were before the indicator was added.
+const DELTA_W = 96;
 const TRACK_X = LABEL_W + 8;
-const TRACK_W = BAR_W - TRACK_X - VALUE_W;
+const TRACK_W = BAR_W - TRACK_X - VALUE_W - DELTA_W;
 
 function shortDate(iso) {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -43,15 +50,40 @@ function barPath(x, y, w, h, r) {
 }
 
 /**
+ * Density since the baseline, per staff group — the numbers the bars need to
+ * show a direction. Returns null for a group when there is no usable baseline,
+ * which is the same "don't compare against an unstated starting line" rule
+ * baselinePoint follows.
+ *
+ * @param {Array} series   from snapshotSeries
+ * @param {Object} base    from baselinePoint(series), or null
+ */
+export function densityGroupDeltas(series, base) {
+  const latest = series.length ? series[series.length - 1] : null;
+  if (!base || !latest) return {};
+  const at = (field) => formatDelta(base[field], latest[field], { percent: true });
+  return {
+    teachers: at("densityTeachers"),
+    leadership: at("densityLeadership"),
+    support: at("densitySupport"),
+  };
+}
+
+/**
  * Horizontal bars for density by staff group, with the overall figure drawn as
  * a reference line. One measure across three groups, so one colour — the bars
  * are magnitudes of the same thing, not separate identities that need hues.
+ *
+ * `deltas` is optional: { teachers, leadership, support }, each a formatDelta
+ * result or null. Each one renders at the end of its row as an arrow plus the
+ * change in points — the arrow is what carries the direction, the colour only
+ * reinforces it.
  */
-export function densityBars({ teachers, leadership, support, overall }) {
+export function densityBars({ teachers, leadership, support, overall, deltas = {} }) {
   const groups = [
-    { label: "Teachers", value: teachers },
-    { label: "Leadership", value: leadership },
-    { label: "Support", value: support },
+    { label: "Teachers", value: teachers, delta: deltas.teachers },
+    { label: "Leadership", value: leadership, delta: deltas.leadership },
+    { label: "Support", value: support, delta: deltas.support },
   ];
   const height = groups.length * ROW_H + 34;
   const x = (v) => TRACK_X + (Math.max(0, Math.min(v ?? 0, AXIS_MAX)) / AXIS_MAX) * TRACK_W;
@@ -59,11 +91,15 @@ export function densityBars({ teachers, leadership, support, overall }) {
   const rows = groups.map((g, i) => {
     const y = 6 + i * ROW_H;
     const w = g.value == null ? 0 : x(g.value) - TRACK_X;
+    const baseline = y + BAR_H - 3;
     return `
-      <text class="dbar-label" x="${LABEL_W}" y="${y + BAR_H - 3}" text-anchor="end">${escapeHtml(g.label)}</text>
+      <text class="dbar-label" x="${LABEL_W}" y="${baseline}" text-anchor="end">${escapeHtml(g.label)}</text>
       <rect class="dbar-track" x="${TRACK_X}" y="${y}" width="${TRACK_W}" height="${BAR_H}" rx="3" />
       ${w > 0 ? `<path class="dbar-fill" d="${barPath(TRACK_X, y, w, BAR_H, 3)}" />` : ""}
-      <text class="dbar-value" x="${BAR_W}" y="${y + BAR_H - 3}" text-anchor="end">${escapeHtml(formatPercent(g.value, 1))}</text>`;
+      <text class="dbar-value" x="${BAR_W - DELTA_W}" y="${baseline}" text-anchor="end">${escapeHtml(formatPercent(g.value, 1))}</text>
+      ${g.delta
+        ? `<text class="dbar-delta ${g.delta.direction}" x="${BAR_W}" y="${baseline}" text-anchor="end">${escapeHtml(g.delta.text)}</text>`
+        : ""}`;
   }).join("");
 
   const refX = overall == null ? null : x(overall);
@@ -73,7 +109,8 @@ export function densityBars({ teachers, leadership, support, overall }) {
           text-anchor="${refX > TRACK_X + TRACK_W * 0.7 ? "end" : "start"}">overall ${escapeHtml(formatPercent(overall, 1))}</text>`;
 
   const summary = `Density by staff group: `
-    + groups.map((g) => `${g.label} ${formatPercent(g.value, 1)}`).join(", ")
+    + groups.map((g) => `${g.label} ${formatPercent(g.value, 1)}`
+      + (g.delta ? ` (${g.delta.text.replace("▲", "up").replace("▼", "down")} since ${shortDate(BASELINE_DATE)})` : "")).join(", ")
     + `. Overall ${formatPercent(overall, 1)}. Scale runs from 0 to 100 per cent.`;
 
   return `
@@ -101,11 +138,36 @@ function tile({ label, value, hint, delta, invertDelta }) {
 }
 
 /**
+ * The whole density-by-staff-group block — card, title and chart. Exported so
+ * the dashboard shows the same thing the branch and trust pages do, rather than
+ * its own text-only version of the same three numbers.
+ *
+ * @param {Object} density  { total, teachers, leadership, support, deltas? }
+ */
+export function densityCard(density) {
+  const deltas = density.deltas || {};
+  const hasDeltas = Boolean(deltas.teachers || deltas.leadership || deltas.support);
+  return `
+    <div class="card level-density">
+      <div class="level-density-title">Density by staff group${
+        hasDeltas ? ` <span class="level-density-note">change since ${escapeHtml(shortDate(BASELINE_DATE))}</span>` : ""
+      }</div>
+      <div class="density-scroll">${densityBars({
+        teachers: density.teachers,
+        leadership: density.leadership,
+        support: density.support,
+        overall: density.total,
+        deltas,
+      })}</div>
+    </div>`;
+}
+
+/**
  * @param {Object} model
  * @param {string[]} model.identityParts  e.g. ["8 schools", "706 staff", "307 members"]
  * @param {Array}  [model.chips]          [{ label, href }] — boroughs on the MAT page
  * @param {Array}  model.tiles            three { label, value, hint, delta }
- * @param {Object} model.density          { total, teachers, leadership, support }
+ * @param {Object} model.density          { total, teachers, leadership, support, deltas? }
  * @param {string} [model.footerHtml]
  */
 export function levelHeaderHtml(model) {
@@ -121,15 +183,7 @@ export function levelHeaderHtml(model) {
         ${model.tiles.map(tile).join("")}
       </div>
 
-      <div class="card level-density">
-        <div class="level-density-title">Density by staff group</div>
-        <div class="density-scroll">${densityBars({
-          teachers: model.density.teachers,
-          leadership: model.density.leadership,
-          support: model.density.support,
-          overall: model.density.total,
-        })}</div>
-      </div>
+      ${densityCard(model.density)}
 
       ${model.footerHtml ? `<div class="level-footer">${model.footerHtml}</div>` : ""}
     </div>`;

@@ -28,6 +28,7 @@ import {
   seriesCadence, recentRun, BASELINE_DATE,
 } from "../data/snapshots.js";
 import { detectExceptions } from "../data/exceptions.js";
+import { densityCard, densityGroupDeltas } from "../ui/level-header.js";
 import {
   sparkline, formatDelta, formatNumber, formatPercent, formatDate, escapeHtml,
 } from "../ui.js";
@@ -239,15 +240,15 @@ function outcomesBand(scope, series, base, recent) {
       + `so "since baseline" figures aren't shown. Comparing against whatever happened to be captured first would be a delta measured from an unstated starting line.`;
   }
 
-  const split = `
-    <details class="density-split">
-      <summary>Density by staff category</summary>
-      <div class="split-row">
-        <div><span class="split-label">Teachers</span> ${escapeHtml(formatPercent(scope.summary.densityTeachers))}</div>
-        <div><span class="split-label">Leadership</span> ${escapeHtml(formatPercent(scope.summary.densityLeadership))}</div>
-        <div><span class="split-label">Support</span> ${escapeHtml(formatPercent(scope.summary.densitySupport))}</div>
-      </div>
-    </details>`;
+  // The same chart the branch and trust pages open with — three numbers hidden
+  // behind a disclosure triangle told nobody about the teacher/support gap.
+  const split = densityCard({
+    total: scope.summary.densityTotal,
+    teachers: scope.summary.densityTeachers,
+    leadership: scope.summary.densityLeadership,
+    support: scope.summary.densitySupport,
+    deltas: densityGroupDeltas(series, base),
+  });
 
   return `
     <div class="band-grid band-outcomes">
@@ -460,8 +461,6 @@ export async function render(container) {
             ${a.note ? `<div class="tile-note">${escapeHtml(a.note)}</div>` : ""}
           </div>`).join("")}
       </div>
-      <p class="band-caveat">Logged in this app rather than imported, which is why these two are
-        dependable and why nothing else sits alongside them.</p>
 
       <div class="section-title">Exceptions — where to look</div>
       ${exceptionsBand(exceptions)}
