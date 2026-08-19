@@ -230,6 +230,7 @@ Per-MAT facts that aren't derivable from any export.
 | 1 | MAT | `mat` | text | Derived | — | carried |  |
 | 2 | Is target MAT? | `isTargetMat` | yesno | Derived | — | yes | Highlighted in multiple locations via star. |
 | 3 | Rep committee exists? | `repCommitteeExists` | yesno | Derived | — | carried |  |
+| 4 | Companies House number | `companyNumber` | text | Derived | — | carried | 8 characters, e.g. 06228587 — keep the leading zero. Used to build the Bargaining Dashboard link on the MAT page; leave blank and no link is shown. Find it on the trust's Companies House record or its GIAS group page. |
 
 ## Meetings
 

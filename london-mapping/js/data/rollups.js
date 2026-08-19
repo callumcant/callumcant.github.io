@@ -317,12 +317,14 @@ export function buildMatLevel(schools, state) {
     const notes = state.fieldNotes.filter((n) => n.level === "MAT" && n.subject === trust);
     const lastNote = latestBy(notes);
     const facts = state.matFacts.find((f) => f.mat === trust)
-      || { isTargetMat: false, repCommitteeExists: false };
+      || { isTargetMat: false, repCommitteeExists: false, companyNumber: null };
     const committee = resolveRepCommittee(state, trust, facts.repCommitteeExists);
 
     return {
       name: trust,
       isTargetMat: facts.isTargetMat,
+      // Only used to build the Bargaining Dashboard link; null is normal.
+      companyNumber: facts.companyNumber || null,
       schoolCount,
       boroughsPresent: [...new Set(matSchools.map((s) => s.laName))].sort(),
       phasesPresent: [...new Set(matSchools.map((s) => s.phase))].sort(),

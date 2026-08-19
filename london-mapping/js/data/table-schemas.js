@@ -65,7 +65,7 @@ export const TABLE_SCHEMAS = {
   ],
   // Per-MAT facts that aren't derivable from any export.
   MatFacts: [
-    "mat", "isTargetMat", "repCommitteeExists"
+    "mat", "isTargetMat", "repCommitteeExists", "companyNumber"
   ],
   // Append-only log of conversations held with members and reps — workplace meetings, 1-2-1s and small group conversations alike. One row per conversation.
   Meetings: [

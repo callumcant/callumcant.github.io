@@ -7,6 +7,7 @@ import {
 } from "../ui.js";
 import { getSignedInName } from "../auth.js";
 import { quadrantBadge } from "../ui/quadrant.js";
+import { bargainingSchoolUrl, bargainingButtonHtml } from "../ui/bargaining-link.js";
 
 const PREFS_KEY = "london-mapping:schools:columns";
 
@@ -539,6 +540,7 @@ export async function renderDetail(container, { urn }) {
     <div class="btn-row" style="margin-top:0;">
       <button class="btn btn-primary" id="log-meeting">+ Log meeting or 1-2-1</button>
       <a class="btn" href="#/notes/new?level=School&subject=${school.urn}&return=${encodeURIComponent(`/schools/${school.urn}`)}">+ Add note</a>
+      ${bargainingButtonHtml(bargainingSchoolUrl(school.urn), "School finances")}
     </div>
 
     <div class="section-title">Activity log</div>

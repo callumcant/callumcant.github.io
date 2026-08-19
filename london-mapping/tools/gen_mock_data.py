@@ -383,11 +383,22 @@ L.append("];\n")
 L.append('''// Non-target trusts get a row too, with isTargetMat false. Without one they
 // would show on the Anomalies page as "MAT not in MatFacts", and a trust the
 // project simply isn't working in is not an anomaly.''')
+# Fake company numbers, in a 99xxxxxx range Companies House has not reached, so
+# a stray click in preview can't land on a real employer's finances. Lea Valley
+# is left blank on purpose: it's the "no number, no button" case.
+FAKE_COMPANY_NUMBERS = {
+    "Oscar Romero":"99000101","COLA":"99000102","Haberdashers":"99000103",
+    "Compass Eko":"99000104","Orchard Hill":"99000105",
+    "Thameside Learning Trust":"99000106","Riverbank Education Trust":"99000107",
+}
+
 L.append("export const matFacts = [")
 for m in ["Oscar Romero","COLA","Haberdashers","Compass Eko","Orchard Hill"]:
-    L.append("  " + js({"mat":m,"isTargetMat":True,"repCommitteeExists":m in ("Oscar Romero","Orchard Hill")}) + ",")
+    L.append("  " + js({"mat":m,"isTargetMat":True,"repCommitteeExists":m in ("Oscar Romero","Orchard Hill"),
+        "companyNumber":FAKE_COMPANY_NUMBERS.get(m,"")}) + ",")
 for m in NON_TARGET_MATS:
-    L.append("  " + js({"mat":m,"isTargetMat":False,"repCommitteeExists":False}) + ",")
+    L.append("  " + js({"mat":m,"isTargetMat":False,"repCommitteeExists":False,
+        "companyNumber":FAKE_COMPANY_NUMBERS.get(m,"")}) + ",")
 L.append("];\n")
 
 NOTES = [

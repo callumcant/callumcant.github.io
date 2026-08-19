@@ -2,6 +2,7 @@ import { loadAll } from "../data/store.js";
 import { buildSchoolLevel, buildMatLevel } from "../data/rollups.js";
 import { renderDataTable, formatNumber, formatPercent, formatDate, escapeHtml, showToast, downloadCsv, csvFilename, barCell } from "../ui.js";
 import { renderQuadrant } from "../ui/quadrant.js";
+import { bargainingTrustUrl, bargainingButtonHtml } from "../ui/bargaining-link.js";
 import { renderSearchSelect } from "../ui/search-select.js";
 import { levelHeaderHtml, headlineTiles, footerStat, densityGroupDeltas } from "../ui/level-header.js";
 import { snapshotSeries, baselinePoint } from "../data/snapshots.js";
@@ -141,9 +142,16 @@ export async function renderDetail(container, { name }) {
 
   const series = snapshotSeries(state.snapshots, mat.schools.map((s) => String(s.urn)));
 
+  // Empty unless the trust has a Companies House number in MatFacts.
+  const bargainingLink = bargainingButtonHtml(
+    bargainingTrustUrl(mat.companyNumber),
+    "Trust finances"
+  );
+
   container.innerHTML = `
     <div class="breadcrumb"><a href="#/mats">← MATs</a></div>
     <div class="topbar"><h1>${escapeHtml(mat.name)}${mat.isTargetMat ? " ⭐ Target MAT" : ""}</h1></div>
+    ${bargainingLink ? `<div class="btn-row" style="margin-top:0;">${bargainingLink}</div>` : ""}
 
     ${levelHeaderHtml({
       identityParts: [

@@ -1117,7 +1117,7 @@
       "name": "MatFacts",
       "description": "Per-MAT facts that aren't derivable from any export.",
       "editedByApp": false,
-      "note": "One row per MAT you're tracking. Use the canonical name — see MatAliases if a trust appears under more than one name in the source data.",
+      "note": "One row per MAT you're tracking. Use the canonical name — see MatAliases if a trust appears under more than one name in the source data. 'Companies House number' is only used to link out to the Bargaining Dashboard — it is formatted as text so leading zeros survive.",
       "fields": [
         {
           "key": "mat",
@@ -1140,6 +1140,14 @@
           "type": "yesno",
           "source": "Derived",
           "inDictionary": false
+        },
+        {
+          "key": "companyNumber",
+          "header": "Companies House number",
+          "type": "text",
+          "source": "Derived",
+          "inDictionary": false,
+          "notes": "8 characters, e.g. 06228587 — keep the leading zero. Used to build the Bargaining Dashboard link on the MAT page; leave blank and no link is shown. Find it on the trust's Companies House record or its GIAS group page."
         }
       ],
       "dv": {
@@ -1151,7 +1159,10 @@
           "Yes",
           "No"
         ]
-      }
+      },
+      "textCols": [
+        "D"
+      ]
     },
     {
       "name": "Meetings",

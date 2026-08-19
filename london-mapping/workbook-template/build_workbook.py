@@ -65,7 +65,9 @@ def rows_for(table):
     if name == "BranchFacts":
         return [[b, "Yes" if b in PROJECT_BRANCHES else "No", 0] for b in LONDON_BOROUGHS]
     if name == "MatFacts":
-        return [[m, "Yes", "No"] for m in PROJECT_MATS]
+        # Companies House number is left blank: it has to be looked up per
+        # trust, and a wrong one links to another employer's finances.
+        return [[m, "Yes", "No", ""] for m in PROJECT_MATS]
     if name == "MatAliases":
         return MAT_ALIAS_SEEDS
     example = table.get("example")
@@ -100,6 +102,16 @@ def build():
         for row in ws.iter_rows(min_row=2, max_row=n_rows, max_col=n_cols):
             for cell in row:
                 cell.font = Font(name=FONT)
+
+        # Text-formatted columns. Excel eats the leading zero off an 8-digit
+        # Companies House number the moment it decides the cell is a number,
+        # and 6228587 is not a valid company number.
+        # Set on the column rather than 2,000 individual cells: cell-by-cell
+        # formatting materialises every blank cell and inflates the file.
+        for col_letter in table.get("textCols", []):
+            ws.column_dimensions[col_letter].number_format = "@"
+            for r in range(2, n_rows + 1):
+                ws[f"{col_letter}{r}"].number_format = "@"
 
         for col_letter, options in table.get("dv", {}).items():
             dv = DataValidation(type="list", formula1='"' + ",".join(options) + '"', allow_blank=True)

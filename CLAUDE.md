@@ -293,7 +293,14 @@ release are worth writing defensively (`handle.setItems?.(…)`) for that window
   computes.
 - `repsTrainedSinceStart` has no data source. It's retained in the dictionary,
   schema and rollups for when training data arrives, but is not displayed.
-- Michal's bargaining-dashboard link from MAT pages needs a URL pattern from
-  Callum before it can be built.
+- **Bargaining Dashboard links are only as good as the numbers behind them.**
+  `js/ui/bargaining-link.js` builds them: schools key on URN (always present,
+  so the button is always there), trusts key on a Companies House number held
+  in the `MatFacts` sheet's new "Companies House number" column. That column
+  ships blank — a wrong number links to another employer's finances, so it has
+  to be looked up per trust — and a MAT without one shows no button at all.
+  Nothing flags the omission; a silently missing button is the failure mode.
+  The column is text-formatted in the template so Excel can't eat the leading
+  zero off `06228587`, and `normaliseCompanyNumber` pads it back if it does.
 - Rubik (jsDelivr) and MSAL (esm.sh) are still CDN-loaded, ~200KB. Self-hosting
   was offered and not yet taken up.

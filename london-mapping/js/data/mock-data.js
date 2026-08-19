@@ -417,14 +417,14 @@ export const branchFacts = [
 // would show on the Anomalies page as "MAT not in MatFacts", and a trust the
 // project simply isn't working in is not an anomaly.
 export const matFacts = [
-  {"mat": "Oscar Romero", "isTargetMat": true, "repCommitteeExists": true},
-  {"mat": "COLA", "isTargetMat": true, "repCommitteeExists": false},
-  {"mat": "Haberdashers", "isTargetMat": true, "repCommitteeExists": false},
-  {"mat": "Compass Eko", "isTargetMat": true, "repCommitteeExists": false},
-  {"mat": "Orchard Hill", "isTargetMat": true, "repCommitteeExists": true},
-  {"mat": "Thameside Learning Trust", "isTargetMat": false, "repCommitteeExists": false},
-  {"mat": "Riverbank Education Trust", "isTargetMat": false, "repCommitteeExists": false},
-  {"mat": "Lea Valley Academies", "isTargetMat": false, "repCommitteeExists": false},
+  {"mat": "Oscar Romero", "isTargetMat": true, "repCommitteeExists": true, "companyNumber": "99000101"},
+  {"mat": "COLA", "isTargetMat": true, "repCommitteeExists": false, "companyNumber": "99000102"},
+  {"mat": "Haberdashers", "isTargetMat": true, "repCommitteeExists": false, "companyNumber": "99000103"},
+  {"mat": "Compass Eko", "isTargetMat": true, "repCommitteeExists": false, "companyNumber": "99000104"},
+  {"mat": "Orchard Hill", "isTargetMat": true, "repCommitteeExists": true, "companyNumber": "99000105"},
+  {"mat": "Thameside Learning Trust", "isTargetMat": false, "repCommitteeExists": false, "companyNumber": "99000106"},
+  {"mat": "Riverbank Education Trust", "isTargetMat": false, "repCommitteeExists": false, "companyNumber": "99000107"},
+  {"mat": "Lea Valley Academies", "isTargetMat": false, "repCommitteeExists": false, "companyNumber": ""},
 ];
 
 export const fieldNotes = [
