@@ -1,7 +1,7 @@
 import { loadAll, getState, addFieldNote } from "../data/store.js";
 import { buildSchoolLevel } from "../data/rollups.js";
 import { FIELD_NOTE_LEVELS } from "../config.js";
-import { formatDate, escapeHtml, downloadCsv, csvFilename } from "../ui.js";
+import { formatDate, escapeHtml, downloadCsv, csvFilename, showToast } from "../ui.js";
 import { navigate } from "../router.js";
 
 function subjectLabel(note, schoolsByUrn) {
@@ -141,16 +141,27 @@ export async function renderList(container, params = {}) {
   applyFilters();
 }
 
+// Where to go after saving or cancelling. Pages that link here pass
+// `return=/schools/123`, so the organiser lands back on the record they were
+// reading instead of being dumped on the full notes list. Only in-app hash
+// paths are honoured — anything that is not a plain "/..." route is ignored.
+function returnTarget(query) {
+  const raw = query?.return || "";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
 export async function renderForm(container, { query }) {
   const state = await loadAll();
   const schools = buildSchoolLevel(state);
   const prefillLevel = query?.level && FIELD_NOTE_LEVELS.includes(query.level) ? query.level : "School";
   const prefillSubject = query?.subject || "";
+  const backTo = returnTarget(query);
   const branches = [...new Set(schools.map((s) => s.laName))].sort();
   const mats = [...new Set(schools.map((s) => s.trust).filter(Boolean))].sort();
 
   container.innerHTML = `
-    <div class="breadcrumb"><a href="#/notes">← Field notes</a></div>
+    <div class="breadcrumb"><a href="#${escapeHtml(backTo || "/notes")}">← ${backTo ? "Back" : "Field notes"}</a></div>
     <div class="topbar"><h1>Add field note</h1></div>
     <form class="card" id="note-form">
       <div class="form-grid">
@@ -183,7 +194,7 @@ export async function renderForm(container, { query }) {
       </div>
       <div class="btn-row">
         <button type="submit" class="btn btn-primary">Save note</button>
-        <a class="btn" href="#/notes">Cancel</a>
+        <a class="btn" href="#${escapeHtml(backTo || "/notes")}">Cancel</a>
       </div>
     </form>
   `;
@@ -227,6 +238,7 @@ export async function renderForm(container, { query }) {
       note: fd.get("note").trim(),
       author: fd.get("author").trim(),
     });
-    navigate("/notes");
+    showToast("Field note saved.");
+    navigate(backTo || "/notes");
   });
 }

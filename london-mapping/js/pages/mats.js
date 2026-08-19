@@ -191,7 +191,7 @@ export async function renderDetail(container, { name }) {
           <div class="note-meta">${formatDate(n.date)} · ${escapeHtml(n.author)}</div>
         </div>`).join("")}
       <div class="btn-row">
-        <a class="btn" href="#/notes/new?level=MAT&subject=${encodeURIComponent(name)}">+ Add note</a>
+        <a class="btn" href="#/notes/new?level=MAT&subject=${encodeURIComponent(name)}&return=${encodeURIComponent(`/mats/${encodeURIComponent(name)}`)}">+ Add note</a>
         ${notes.length ? `<a class="btn" href="#/notes?level=MAT&subject=${encodeURIComponent(name)}">View in notes</a>` : ""}
       </div>
     </div>
