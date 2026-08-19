@@ -25,11 +25,11 @@ available.
 | Density (teachers) | `Membership (teachers) / Headcount (teachers)` | Same rule: sum the parts, then divide. |
 | Density (leadership) | `Membership (leadership) / Headcount (leadership)` | Same rule: sum the parts, then divide. |
 | Density (support) | `Membership (support) / Headcount (support)` | Same rule: sum the parts, then divide. |
-| No rep schools | `count of schools where Rep count = 0` |  |
-| Rep:member ratio | `summed membership / summed rep count` |  |
+| No rep schools | `count of schools where Rep count = 0` | Rep count is a Stratum field. A school missing from the Stratum export reads as zero reps. |
+| Rep:member ratio | `summed membership / summed rep count` | Rep count is a Stratum field. |
 | Number of notes | `count of FieldNotes rows for the subject` |  |
-| School meetings held | `count of Meetings rows in scope` |  |
-| Reps recruited | `count of RepsRecruited rows in scope` |  |
+| School meetings held | `count of Meetings rows in scope` | Counts 1-2-1s and small group conversations as well as workplace meetings — they all go in the same log. |
+| Meeting attendees | `sum of Attendees across Meetings rows in scope` | Blank on meetings logged before the Attendees column existed, so the total reads as a floor rather than an exact figure. |
 | Number of schools (dispute) | `count of URNs in the dispute's Affected URNs` |  |
 | In live dispute | `school URN appears in a dispute where Live = Yes` |  |
 
@@ -66,7 +66,7 @@ DfE Get Information About Schools export. The central spine: every other source 
 
 ## SourceStratum
 
-Stratum membership export. The authoritative source for BOTH headcount and membership, split teacher/leadership/support. Density is derived from these.
+Stratum membership export. The authoritative source for headcount, membership AND reps. Density is derived from the headcount/membership pairs.
 
 *Pasted in / edited in Excel.*
 
@@ -82,11 +82,12 @@ Stratum membership export. The authoritative source for BOTH headcount and membe
 | 8 | Membership (teachers) | `membersTeachers` | number | Stratum | Matched to GIAS via Workplace code to URN conversion | yes |  |
 | 9 | Membership (leadership) | `membersLeadership` | number | Stratum | Matched to GIAS via Workplace code to URN conversion | yes |  |
 | 10 | Membership (support) | `membersSupport` | number | Stratum | Matched to GIAS via Workplace code to URN conversion | yes |  |
-| 11 | Export date | `exportDate` | date | Stratum | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary; records how current the figures are. |
+| 11 | Rep count | `repCount` | number | Stratum | Matched to GIAS via Workplace code to URN conversion | carried | The authoritative rep figure. 'No rep schools', 'Rep coverage' and 'Rep:member ratio' all derive from it. Moved here from the Pay Dashboard export, which used to carry it. |
+| 12 | Export date | `exportDate` | date | Stratum | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary; records how current the figures are. |
 
 ## SourcePayDashboard
 
-NEU Pay Dashboard export. Source for ballot participation, organising engagement and rep count.
+NEU Pay Dashboard export. Source for ballot participation and organising engagement.
 
 *Pasted in / edited in Excel.*
 
@@ -94,25 +95,24 @@ NEU Pay Dashboard export. Source for ballot participation, organising engagement
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Workplace code | `workplaceCode` | text | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
 | 2 | Workplace name | `workplaceName` | text | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
-| 3 | Rep count | `repCount` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Not listed in the dictionary, but 'No rep schools' and 'Rep:member ratio' derive from it. Confirmed as a Pay Dashboard field. |
-| 4 | Members voted (2026 indicative) | `membersVoted2026` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
-| 5 | Members voted (2025 indicative) | `membersVoted2025` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
-| 6 | Members voted (2024 indicative) | `membersVoted2024` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
-| 7 | Turnout (2026 indicative) | `turnout2026` | percent | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes | Stored as a fraction (0.72 = 72%). Only 2026 carries a turnout figure in the dictionary; earlier years are counts only. |
-| 8 | Volunteers | `volunteers` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
-| 9 | WP conversations | `wpConversations` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
-| 10 | Active SEVs | `activeSEVs` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
-| 11 | Rep recruited volunteer | `repRecruitedVolunteer` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
-| 12 | Joined community | `joinedCommunity` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
-| 13 | Completed activate action | `completedActivateAction` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
-| 14 | Agreed to briefing | `agreedToBriefing` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
-| 15 | Hold a meeting | `holdAMeeting` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
-| 16 | Needs support | `needsSupport` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
-| 17 | Pledged to vote | `pledgedToVote` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
-| 18 | Branch name | `branchName` | text | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
-| 19 | District name | `districtName` | text | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
-| 20 | Region name | `regionName` | text | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
-| 21 | Import date | `importDate` | date | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
+| 3 | Members voted (2026 indicative) | `membersVoted2026` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
+| 4 | Members voted (2025 indicative) | `membersVoted2025` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
+| 5 | Members voted (2024 indicative) | `membersVoted2024` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
+| 6 | Turnout (2026 indicative) | `turnout2026` | percent | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes | Stored as a fraction (0.72 = 72%). Only 2026 carries a turnout figure in the dictionary; earlier years are counts only. |
+| 7 | Volunteers | `volunteers` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
+| 8 | WP conversations | `wpConversations` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
+| 9 | Active SEVs | `activeSEVs` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | yes |  |
+| 10 | Rep recruited volunteer | `repRecruitedVolunteer` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
+| 11 | Joined community | `joinedCommunity` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
+| 12 | Completed activate action | `completedActivateAction` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
+| 13 | Agreed to briefing | `agreedToBriefing` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
+| 14 | Hold a meeting | `holdAMeeting` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
+| 15 | Needs support | `needsSupport` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
+| 16 | Pledged to vote | `pledgedToVote` | number | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
+| 17 | Branch name | `branchName` | text | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
+| 18 | District name | `districtName` | text | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
+| 19 | Region name | `regionName` | text | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
+| 20 | Import date | `importDate` | date | Pay Dashboard | Matched to GIAS via Workplace code to URN conversion | carried | Carried beyond the dictionary. |
 
 ## SourceWorkforceSurvey
 
@@ -217,7 +217,7 @@ Per-borough facts that aren't derivable from any export.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Branch | `branch` | text | Derived | — | carried |  |
 | 2 | Is project branch? | `isProjectBranch` | yesno | Derived | — | yes | Highlighted in multiple locations via star. |
-| 3 | Reps trained since start | `repsTrainedSinceStart` | number | Derived | — | carried | Manual until training data is pipelined in. Distinct from reps RECRUITED, which is an event log. |
+| 3 | Reps trained since start | `repsTrainedSinceStart` | number | Derived | — | carried | Manual until training data is pipelined in. Distinct from the rep count, which comes from Stratum. |
 
 ## MatFacts
 
@@ -233,7 +233,7 @@ Per-MAT facts that aren't derivable from any export.
 
 ## Meetings
 
-Append-only log of school meetings held.
+Append-only log of conversations held with members and reps — workplace meetings, 1-2-1s and small group conversations alike. One row per conversation.
 
 *Written by the app.*
 
@@ -243,20 +243,7 @@ Append-only log of school meetings held.
 | 2 | Date | `date` | date | App form | URN linked form | yes |  |
 | 3 | URN | `urn` | number | App form | URN linked form | yes |  |
 | 4 | Logged by | `loggedBy` | text | App form | — | carried |  |
-
-## RepsRecruited
-
-Append-only log of reps recruited.
-
-*Written by the app.*
-
-| # | Column (Excel) | Field (app) | Type | Source | Joins via | In dictionary | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | ID | `id` | text | App form | — | carried |  |
-| 2 | Date | `date` | date | App form | URN linked form | yes |  |
-| 3 | URN | `urn` | number | App form | URN linked form | yes |  |
-| 4 | Rep name | `repName` | text | App form | URN linked form | yes |  |
-| 5 | Logged by | `loggedBy` | text | App form | — | carried |  |
+| 5 | Attendees | `attendees` | number | App form | URN linked form | yes |  |
 
 ## RepCommittees
 

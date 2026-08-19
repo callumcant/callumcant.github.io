@@ -15,15 +15,16 @@ export const TABLE_SCHEMAS = {
     "schoolSponsors", "federations", "postcode", "schoolWebsite",
     "telephoneNum", "headTitle", "headFirstName", "headLastName"
   ],
-  // Stratum membership export. The authoritative source for BOTH headcount and membership, split teacher/leadership/support. Density is derived from these.
+  // Stratum membership export. The authoritative source for headcount, membership AND reps. Density is derived from the headcount/membership pairs.
   SourceStratum: [
     "workplaceCode", "workplaceName", "headcountTotal", "headcountTeachers",
     "headcountLeadership", "headcountSupport", "membersTotal",
-    "membersTeachers", "membersLeadership", "membersSupport", "exportDate"
+    "membersTeachers", "membersLeadership", "membersSupport", "repCount",
+    "exportDate"
   ],
-  // NEU Pay Dashboard export. Source for ballot participation, organising engagement and rep count.
+  // NEU Pay Dashboard export. Source for ballot participation and organising engagement.
   SourcePayDashboard: [
-    "workplaceCode", "workplaceName", "repCount", "membersVoted2026",
+    "workplaceCode", "workplaceName", "membersVoted2026",
     "membersVoted2025", "membersVoted2024", "turnout2026", "volunteers",
     "wpConversations", "activeSEVs", "repRecruitedVolunteer",
     "joinedCommunity", "completedActivateAction", "agreedToBriefing",
@@ -66,13 +67,9 @@ export const TABLE_SCHEMAS = {
   MatFacts: [
     "mat", "isTargetMat", "repCommitteeExists"
   ],
-  // Append-only log of school meetings held.
+  // Append-only log of conversations held with members and reps — workplace meetings, 1-2-1s and small group conversations alike. One row per conversation.
   Meetings: [
-    "id", "date", "urn", "loggedBy"
-  ],
-  // Append-only log of reps recruited.
-  RepsRecruited: [
-    "id", "date", "urn", "repName", "loggedBy"
+    "id", "date", "urn", "loggedBy", "attendees"
   ],
   // Append-only log of whether a trust has a rep committee, and from when.
   RepCommittees: [
@@ -115,7 +112,7 @@ const NUMERIC_FIELDS = new Set([
     "averageSickDays", "hcAllTeachers", "hcClassroomTeachers",
     "hcLeadershipTeachers", "hcAllSupportStaff", "hcTeachingAssistants",
     "indicativePercent", "membershipAtIndicative", "formalBallotPercent",
-    "totalStrikeDays", "repsTrainedSinceStart", "lat", "lon"
+    "totalStrikeDays", "repsTrainedSinceStart", "attendees", "lat", "lon"
 ]);
 
 // Comma-separated in Excel, arrays in JS.
