@@ -76,6 +76,8 @@ london-mapping/
     build_workbook.py   reads dictionary.json directly; emits the .xlsx template
   tools/
     gen_mock_data.py    writes js/data/mock-data.js
+    mat_company_numbers.py  matches MATs to Companies House numbers from the
+                        GIAS groups download; proposes, never guesses
   design/               NEU design spec and source tokens
   docs/                 generated data dictionary, snapshot flow for IT
   SETUP.md              handover doc for the Entra/M365 admin
