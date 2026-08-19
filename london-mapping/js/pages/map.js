@@ -19,13 +19,14 @@
 //   size    membership
 //   fill    rep status — filled has one, hollow doesn't
 //
-// Fill carries rep status in EVERY view, not only when colour-by is set to rep
-// coverage. That is one more variable than the strict "one variable per view"
-// rule allows, and it is deliberate: rep gaps are the thing organisers are
-// always hunting, so they stay legible whatever else is being asked. It also
-// matches the quadrant (js/ui/quadrant.js), so both graphics teach the same
-// visual language. The consequence is that hollow is spoken for, so "no data"
-// for the selected metric is a muted grey sitting outside the ramp instead.
+// Fill carries rep status in EVERY view. That is one more variable than the
+// strict "one variable per view" rule allows, and it is deliberate: rep gaps
+// are the thing organisers are always hunting, so they stay legible whatever
+// else is being asked — and with no rep colour scale, fill is the only place
+// rep status appears on the map at all. It also matches the quadrant
+// (js/ui/quadrant.js), so both graphics teach the same visual language. The
+// consequence is that hollow is spoken for, so "no data" for the selected
+// metric is a muted grey sitting outside the ramp instead.
 //
 // Per the colourblind finding in the design spec, nothing here leans on hue
 // alone. Rep status is fill, membership is size, and the metric ramps are
@@ -106,24 +107,6 @@ function rateScale({ label, breaks, colours, legend, valueOf, weight, note }) {
 }
 
 const SCALES = {
-  rep: rateScale({
-    label: "Rep coverage",
-    breaks: [0.01, 0.5, 0.8],
-    // Amber at the bottom and teal at the top is the convention the rest of the
-    // app already teaches. An individual school is only ever 0% or 100%, so it
-    // lands on one of the two ends; the middle steps are what clusters use.
-    colours: { b0: "#A15C00", b1: "#8ECDD1", b2: "#3E9BA3", b3: "#00747C" },
-    valueOf: (s) => (s.repCount > 0 ? 1 : 0),
-    weight: (s) => ({ num: s.repCount > 0 ? 1 : 0, den: 1 }),
-    legend: [
-      { bucket: "b0", text: "No rep" },
-      { bucket: "b1", text: "Under 50% have a rep" },
-      { bucket: "b2", text: "50–80%" },
-      { bucket: "b3", text: "80%+ / has a rep" },
-    ],
-    note: "A single school is either 0% or 100%; the middle steps are cluster rates.",
-  }),
-
   density: rateScale({
     label: "Density",
     breaks: [0.2, 0.35, 0.5],
@@ -150,8 +133,8 @@ const SCALES = {
     // Purple rather than the obvious amber ramp: amber already means "no rep"
     // in this app, and a turnout scale in the same hue as the rep signal would
     // read as one encoding bleeding into the other. Each metric gets its own
-    // family — teal for reps, blue for density, purple for turnout, red for
-    // disputes — and every ramp descends in luminance so it survives greyscale.
+    // family — blue for density, purple for turnout, red for disputes — and
+    // every ramp descends in luminance so it survives greyscale.
     colours: { b0: "#bda6d8", b1: "#8f6cb5", b2: "#63408d", b3: "#3a1f57" },
     valueOf: (s) => s.turnout2026,
     // Weighted by membership rather than by a separate votes column, so the
@@ -326,7 +309,7 @@ export async function render(container, params = {}) {
   const query = params.query || {};
   const oneOf = (value, allowed) => (allowed.includes(value) ? value : "");
   const initial = {
-    by: oneOf(query.by, Object.keys(SCALES)) || "rep",
+    by: oneOf(query.by, Object.keys(SCALES)) || "density",
     branch: oneOf(query.branch, branches),
     phase: oneOf(query.phase, phases),
     trust: oneOf(query.trust, trusts),
@@ -485,7 +468,7 @@ export async function render(container, params = {}) {
   // top. replaceState fires nothing, and leaves no history entries either.
   function syncUrl() {
     const next = new URLSearchParams();
-    if (byEl.value !== "rep") next.set("by", byEl.value);
+    if (byEl.value !== "density") next.set("by", byEl.value);
     if (branchEl.value) next.set("branch", branchEl.value);
     if (phaseEl.value) next.set("phase", phaseEl.value);
     if (trustEl.value) next.set("trust", trustEl.value);
