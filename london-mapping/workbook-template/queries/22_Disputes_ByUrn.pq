@@ -1,32 +1,18 @@
 // Query name: Disputes_ByUrn
 //
 // One row per school that appears on a dispute, with a count and a live flag.
+// This is what the School view joins to.
 //
-// A school is in dispute if its URN is listed on the dispute — exact, rather
-// than inferred from the dispute's branch or MAT. A trust-wide dispute that
-// only covers four of its thirty schools must not flag the other twenty-six.
-//
-// Affected URNs holds a comma-separated list in one cell, so it is split and
-// expanded here. That is the only reason this query exists rather than the
-// School view joining Src_Disputes directly.
+// The unpacking of the tracker's comma-separated "Affected URNs" cell happens
+// in Dispute_Urns; this is only the count. Keeping the two apart means the
+// Disputes sheet and the School view are looking at the same parsed list rather
+// than at two implementations of the same split.
 //
 // Load to: connection only.
 let
-    Source = Src_Disputes,
+    Source = Dispute_Urns,
 
-    Listed = Table.SelectRows(Source, each [Affected URNs] <> null and Text.Trim(Text.From([Affected URNs])) <> ""),
-
-    Split = Table.AddColumn(Listed, "URN list",
-        each List.Transform(Text.Split(Text.From([Affected URNs]), ","), each Text.Trim(_)),
-        type list),
-
-    Expanded = Table.ExpandListColumn(Split, "URN list"),
-
-    Numbered = Table.AddColumn(Expanded, "URN", each fnNumber([URN list]), Int64.Type),
-
-    Valid = Table.SelectRows(Numbered, each [URN] <> null),
-
-    Grouped = Table.Group(Valid, {"URN"}, {
+    Grouped = Table.Group(Source, {"URN"}, {
         {"Disputes", each Table.RowCount(_), Int64.Type},
         // Yes on any one live dispute is enough. Matching the app's
         // d.live === "Yes" rather than treating a blank as live.

@@ -15,13 +15,17 @@ see.
 
 ## What is built so far
 
-The **School view**, the **Branch view** and the **MAT view**, and everything
-they need. That is the bulk of the model — the dashboard, exceptions band and
-quadrant chart all read `SchoolView` and nothing else, and the two rollups read
-`SchoolView` and nothing else either.
+All of it. The **School view**, the **Branch view** and the **MAT view**; the
+**Trend** sheets; the **Disputes** sheet; the **Anomalies** sheet; and
+everything the six of them need.
 
-Still to write: `Trend`, and the small queries behind the disputes and anomalies
-sheets.
+The School view is still the bulk of the model — the dashboard, exceptions band
+and quadrant chart all read `SchoolView` and nothing else, and the two rollups
+read `SchoolView` and nothing else either.
+
+What is left is not query work: laying the sheets out, adding the sparklines and
+the conditional formatting, writing the instruction tab, and checking the
+figures against the app on the same sample data.
 
 ## Pasting a query into Excel
 
@@ -47,22 +51,36 @@ The `P_*` queries are ordinary queries that return a value, not Excel
 | `SchoolView` | the **School view** sheet, as a table |
 | `BranchView` | the **Branch view** sheet, as a table |
 | `MatView` | the **MAT view** sheet, as a table |
+| `Trend` | the **Trend** sheet, as a table |
+| `Trend_ByBranch` | the **Trend by branch** sheet, as a table |
+| `Trend_ByMat` | the **Trend by MAT** sheet, as a table |
+| `Dispute_Kpis` | the **Disputes** sheet, top block |
+| `DisputeView` | the **Disputes** sheet, the dispute list |
+| `Dispute_Schools` | the **Disputes** sheet, beneath the list |
+| `Anomaly_Counts` | the **Anomalies** sheet, top block |
+| `Anomalies` | the **Anomalies** sheet, the list |
 | everything else | **Only Create Connection** |
 
-`Src_StratumHistory` in particular must stay a connection: it is one row per
-school per week, forever, and putting it on a sheet would blow past Excel's row
-limit within a couple of years at London scale.
+`Src_StratumRows`, `Src_StratumHistory` and `Trend_ByUrn` in particular must
+stay connections: they are one row per school per week, forever, and putting one
+on a sheet would blow past Excel's row limit within a couple of years at London
+scale. The Trend sheets hold the weekly *series*, which is one row per week —
+a few hundred rows, not a few hundred thousand.
+
+Three queries to one sheet is fine — each gets its own block, with a heading and
+a couple of blank rows between them. Give each block room to grow downwards, or
+a refresh that returns more rows than last time will refuse to load.
 
 ## Load order
 
 | # | Queries | What they are |
 |---|---|---|
-| `00_` | `P_SiteUrl` `P_Library` `P_MappingFolder` `P_LocalFolder` `P_RepPositions` `P_BranchColumn` `P_QuadrantMinMembers` `P_QuadrantMinPlotted` | the settings anyone might need to change |
+| `00_` | `P_SiteUrl` `P_Library` `P_MappingFolder` `P_LocalFolder` `P_RepPositions` `P_BranchColumn` `P_QuadrantMinMembers` `P_QuadrantMinPlotted` `P_BaselineDate` `P_TrendCompareWeeks` `P_BallotThreshold` | the settings anyone might need to change |
 | `10_` | `fnFolderContents` `fnGetFile` `fnCsvTable` `fnExcelTable` `fnTable` | reaching the files, on SharePoint or on this PC |
 | `11_` | `fnExpect` `fnNumber` `fnZero` `fnDensity` `fnMedian` `fnYesNo` `fnRepRatio` | small shared rules |
-| `20_` | `Src_GIAS` `Src_StratumHistory` `Src_Stratum` `Src_ActivistHistory` `Src_PayDashboard` `Src_WorkforceSurvey` | the big exports |
+| `20_` | `Src_GIAS` `Src_StratumRows` `Src_StratumHistory` `Src_StratumUnkeyed` `Src_Stratum` `Src_ActivistHistory` `Src_PayDashboard` `Src_WorkforceSurvey` | the big exports |
 | `21_` | `Reps_ByWorkplace` `Src_WCtoURN` `Src_MatAliases` `Src_Meetings` `Src_FieldNotes` `Src_BranchFacts` `Src_MatFacts` `Src_RepCommittees` | rep counts, lookups and the shared field log |
-| `22_` | `Src_RepCounts` `Src_Disputes` `Disputes_ByUrn` | this week's rep counts; the restricted dispute tracker |
+| `22_` | `Src_RepCounts` `Src_Disputes` `Dispute_Urns` `Disputes_ByUrn` | this week's rep counts; the restricted dispute tracker |
 | `23_` | `Src_Reconciliations` `Rec_Decisions` `Rec_UrnByWorkplaceCode` `Rec_Successors` `Rec_Excluded` | decisions taken about anomalies |
 | `24_` | `Stratum_ByUrn` `Pay_ByUrn` `Meetings_ByUrn` `Notes_BySchool` | one row per school, per source |
 | `25_` | `fnAddQuadrant` | the organising-quadrant classification |
@@ -70,6 +88,12 @@ limit within a couple of years at London scale.
 | `30_` | `SchoolView` | everything joined together |
 | `31_` | `BranchView` | one row per branch, summed from the School view |
 | `32_` | `MatView` | one row per trust, summed from the School view |
+| `33_` | `fnTrendSeries` `fnTrendDeltas` `Trend_ByUrn` | the weekly history, and the arithmetic on it |
+| `34_` | `Trend` `Trend_ByBranch` `Trend_ByMat` | one row per week, three ways |
+| `35_` | `Dispute_Schools` `DisputeView` `Dispute_Kpis` | the disputes sheet |
+| `36_` | `Anomaly_Types` | what each kind of anomaly is |
+| `37_` | `Anomalies` | everything that doesn't line up |
+| `38_` | `Anomaly_Counts` | how many of each, outstanding and decided |
 
 Paste them in this order and no query is ever referring to something that does
 not exist yet.
@@ -165,6 +189,189 @@ visible and no total moves. `Row type` is `Branch` or `MAT` on every real row.
 Maintained schools belong to no trust, so `MatView` drops them, exactly as the
 app does. They are all still on the School view and counted on the Branch view.
 The MAT view's school count will not add up to London, and should not.
+
+## The Trend sheets
+
+This is what makes the workbook worth refreshing rather than only reading.
+Every other sheet answers "how are things"; these answer "are they moving, and
+which way" — which is the question an organiser is actually asked, and the one
+the twelve-tab spreadsheet could not answer at all, because it only ever held
+the current week.
+
+`Trend` is London, one row per week. `Trend_ByBranch` and `Trend_ByMat` are the
+same series per borough and per trust, because a borough can be falling while
+the region rises.
+
+**The history is derived, not captured.** The app captured a week from whoever
+opened the site first, appended 3,000 rows from their browser, and could not
+resume if they closed the tab — a half-written week showed on the dashboard as a
+real-looking dip, and any row, once written, could be edited by anyone. Here the
+whole history is recomputed from the export files on every refresh. There is
+nothing to capture, nothing to append, nothing to edit, and no half-finished
+week: a week is in the folder or it is not.
+
+`Trend_ByUrn` is the equivalent of the app's `Snapshots` table and stays a
+connection. `fnTrendSeries` groups it into weeks and `fnTrendDeltas` adds the
+comparisons; all three sheets are those two functions over different rows, which
+is what stops them disagreeing.
+
+### Two comparisons, and three settings
+
+| Setting | Means |
+|---|---|
+| `P_BaselineDate` | the starting line every "since" figure is measured from. `BASELINE_DATE` from `js/data/snapshots.js`, to the day |
+| `P_TrendCompareWeeks` | the short comparison, default 4 weeks |
+| `P_BallotThreshold` | the Trade Union Act turnout threshold, used by the Disputes sheet |
+
+The baseline **week** is the earliest week on or after `P_BaselineDate`, not the
+date itself. Weeks before it, and the baseline week itself, have blank "since
+baseline" columns — there is nothing to compare them against, and an unstated
+starting line reads as authoritative when it is not.
+
+The short comparison is the most recent week **at least** four weeks back, not
+the row four rows up. `Compared with` says which week that turned out to be.
+
+**A change in density is a difference of two proportions.** 0.34 to 0.36 gives
+0.02, which formats as 2% and means two percentage points. It is not "up 6%",
+and no label on the sheet may say that it is.
+
+### The gap columns
+
+`Weeks since previous reading` and `Gap in the history` have no app equivalent,
+because the workbook's failure mode is different. The app's history was
+windowed, so a hole in the series was by design and `recentRun()` existed to
+find the unbroken run. Nothing is windowed here — the whole folder is read every
+time — so a hole means a week's export was never dropped in. A fortnight's
+change plotted next to a week's looks like a surge, so the gap is named on the
+row and again on the Anomalies sheet. Dropping the missing file in backfills it
+and moves no current figure.
+
+### Sparklines
+
+Native Excel sparklines read a range of cells, and each Trend sheet is sorted
+oldest week first for exactly that reason. **Sorting a Trend sheet by anything
+else leaves every figure right and every line wrong.**
+
+For the London sparklines: select the cell they should sit in, then **Insert →
+Sparklines → Line**, and give it the table column as its data range —
+`Trend[Density (total)]`, `Trend[Membership (total)]`, `Trend[Rep count]`. A
+table column reference grows on its own as weeks are added, where a fixed
+`A2:A40` does not.
+
+For a single borough or trust, don't try to give each one its own sparkline —
+33 boroughs is 33 hand-placed sparklines that break the first time a row count
+changes. Put a slicer on `Branch` over `Trend_ByBranch` and a line chart beside
+it instead.
+
+### The KPI cells
+
+Every "since" figure on a dashboard is the last row of `Trend`, and the safe way
+to reach it is by the newest week rather than by row number:
+
+```
+=XLOOKUP(MAX(Trend[Week]), Trend[Week], Trend[Density (total)])
+=XLOOKUP(MAX(Trend[Week]), Trend[Week], Trend[Density since baseline])
+=XLOOKUP(MAX(Trend[Week]), Trend[Week], Trend[Rep count since baseline])
+```
+
+`Rep counts as at` on that row says which week of the activists export answered
+its rep figures. It is normal for it to be a day or two off the Stratum week —
+they are two files, pulled at two moments — and each Stratum week takes the most
+recent activist week at or before it. If that column is ever blank, every rep
+figure in the row is Stratum's Yes/No flag standing in as a floor of 1.
+
+## The Disputes sheet
+
+Three blocks, top to bottom: `Dispute_Kpis`, then `DisputeView`, then
+`Dispute_Schools`.
+
+`DisputeView` is the tracker with the schools on each dispute counted and their
+membership added up. A dispute is easier to judge with "9 schools, 640 members,
+2 with no rep" beside it than with a cell of comma-separated URNs.
+`Dispute_Schools` is that unpacked one school per row — the app's dispute detail
+page, and the sheet that answers "who is actually in this dispute", because a
+dispute at an employer with eleven schools is eleven organising situations.
+
+`Dispute_Kpis` mirrors `disputeKpis` in `js/data/rollups.js`: live disputes,
+successful indicative ballots, successful formal ballots, strike days, disputes
+resolved green — plus three the workbook can add for free. It is a
+Measure/Value/**What it counts** table rather than one wide row, because the
+definitions are the point: "successful indicative ballots" counts ballots that
+reached a legal threshold, not ballots people were pleased with, and a number on
+a dashboard with no definition beside it gets quoted in a meeting as whatever
+the reader assumed.
+
+**A blank ballot percentage is not a failed ballot.** It stays blank in
+`Indicative reached threshold` and is not counted either way in the KPIs.
+
+### The dispute tracker's permissions reach the whole workbook
+
+`Src_Disputes` reads a file in a subfolder whose inheritance is broken, limited
+to dispute leads and SIOs. That was the direct answer to IT's objection about
+sensitivity and it stays.
+
+It has a consequence worth being explicit about: **the School view counts
+disputes per school**, so `SchoolView` → `Disputes_ByUrn` → `Src_Disputes`, and
+anyone who cannot open that folder cannot refresh the master workbook at all.
+They get a permissions error rather than a wrong number, which is the correct
+failure, but it does mean the master is a dispute-lead file. If the workbook
+needs to go wider than that, the fix is a copy with `Disputes_ByUrn` returning
+an empty table — not a loosening of the folder.
+
+## The Anomalies sheet
+
+Two blocks: `Anomaly_Counts` at the top, then `Anomalies` itself.
+
+Roughly 5–10% of schools don't match cleanly across GIAS, Stratum and the Pay
+Dashboard. That is normal and permanent — three systems, three sets of keys,
+three cadences. What is not acceptable is not knowing *which* 5%, because every
+one of them is membership sitting outside a total that still looks complete.
+
+**Detection is recomputed every refresh; decisions are stored.** Cleaning an
+export fixes a problem once, until next week's export arrives with the same
+problem in it. Recording the decision fixes it for every refresh from now on.
+
+To answer an anomaly, copy its `Anomaly type` and `Key` into a new row on the
+**Reconciliations** table with an action — `link`, `successor`, `exclude` or
+`accept` — and refresh. The row disappears. Reconciliations is append-only:
+superseding a decision means a newer row, never an edit.
+
+### Thirteen kinds, six of them the app's
+
+The first six are `ANOMALY_TYPES` in `js/data/reconcile.js`, slug for slug. **The
+slugs are the join key between a decision and the thing it decided**, so a
+decision recorded in the app silences the same anomaly here and the other way
+round. Changing one orphans every decision ever recorded against it.
+
+The other seven the workbook found on its own, mostly because it reads the
+export files directly and the app only ever saw what had already been loaded:
+rows with no workplace code at all, a workplace repeated within one week, a week
+missing from the folder, a dispute listing a school that isn't there, notes
+filed against a branch or trust name nothing has, and whether the staff groups
+add up to total membership. They are silenced the same way, but the app does not
+detect them and will ignore those decisions.
+
+**Every kind gets a row in `Anomaly_Counts`, including the ones at zero.** A
+check that disappears when it stops firing is a check nobody knows is running —
+and a detection that fires on nothing for a year is either good news or broken,
+which look identical if the row isn't there.
+
+### One deliberate difference from the app
+
+In **Members at a closed school**, the app looks only at the first workplace
+code on the school, so a closed school whose first code carries 0 members and
+whose second carries 50 is missed entirely. The workbook sums the codes and
+catches it. That is a bug in `js/data/reconcile.js` worth fixing there rather
+than reproducing here.
+
+### One check still not built
+
+`Src_StratumHistory` drops Stratum's own density percentages, because a borough
+density cannot be built from per-school percentages and carrying both would give
+two columns that disagree in the third decimal place. Comparing them **as a
+check** — our density against theirs, per school — is still worth doing, and
+would mean reading one of those columns back in for that purpose only. Not done,
+deliberately not forgotten.
 
 ## The real Stratum export — confirmed August 2026
 
