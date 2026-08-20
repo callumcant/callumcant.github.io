@@ -8,6 +8,28 @@ the Microsoft Graph API.
 Live at `https://callumcant.github.io/london-mapping/`. The site lives in the
 `london-mapping/` subfolder; the repo root is a GitHub Pages user site.
 
+## Status — read this first (August 2026)
+
+**The app is a prototype and will not go live against Graph.** IT declined the
+Entra app registration in August 2026: dispute data needs a DPIA,
+`Files.ReadWrite.All` is too broad, and a SharePoint workbook isn't an
+acceptable production database. All three points are fair and are not being
+argued.
+
+Work has pivoted into three workstreams, set out in
+`london-mapping/docs/pivot-plan.md` — **read that before starting anything**:
+
+1. This status block (done).
+2. **An interim Excel workbook**, shipping before the start of term, carrying as
+   much of the app's functionality as formulas can carry. No app, no app
+   registration.
+3. **A national SQL design**, jointly with Michal (who already runs the Stratum
+   pulls), taken to Digital Solutions. The app becomes the requirements
+   artefact.
+
+The app itself still runs on sample data and stays useful as a demonstration.
+Don't delete it, and don't rebuild it against a narrower Graph permission.
+
 ## Working with Callum
 
 Callum is an NEU organiser, not a developer. **Explain jargon in plain language
@@ -207,29 +229,30 @@ blocked-CDN fallback; both are expected locally.
   as you type. Sorting still spans the whole filtered set. Don't apply the cap to
   the CSV export — the footer line tells people to use it to get everything.
 
-## Going live
+## Why there is no go-live
 
 Three values in `js/config.js` — `clientId`, `tenantId`, `workbookUrl`. Filling
-all three switches the app from sample data to the real workbook; there is no
-flag to flip. `workbookUrl` is already set. Outstanding:
+all three would switch the app from sample data to the real workbook; there is
+no flag to flip. `workbookUrl` is set, and the other two never will be:
+**IT declined the Entra app registration in August 2026** (see the status block
+at the top and `london-mapping/docs/pivot-plan.md`). `SETUP.md` describes a
+registration that is not going to happen; it is kept as a record of what was
+asked for.
 
-- **IT must register the Entra app** (single tenant, SPA, PKCE, delegated
-  `Files.ReadWrite.All` + `User.Read`). See `SETUP.md`. Not started as of the
-  last check. The MSAL client ID is not a secret and is fine in a public repo;
-  there is no client secret.
-- **The workbook must be populated** from the generated template.
+The notes below were the launch checklist. They are kept because each one is a
+real constraint the SQL design will have to answer too, not because anything on
+this list is still being worked towards.
+
 - Stratum's real column headers are still unknown — `SourceStratum` is a
   designed guess, and it now carries the rep count as well as membership and
   headcount. When the real export arrives it's a `dictionary.json` edit plus
   regeneration. Whoever produces the export needs telling that the weekly
   report must include a rep count per workplace code.
-- **Watch the console on the first real load.** Two things in `graph-client.js`
-  have only ever run against an in-memory stub, because they need a live
-  workbook: the windowed snapshot read, and the `dataBodyRange?$select=rowCount`
-  call it starts with. If Graph ignores that `$select` it returns every cell in
-  the range — worse than the full read the window exists to avoid. It falls back
-  safely either way, and logs which path it took (`[graph] snapshots: N of M
-  rows in K requests`), so the log line is the thing to check.
+- Two things in `graph-client.js` have never run against anything but an
+  in-memory stub, and now never will: the windowed snapshot read, and the
+  `dataBodyRange?$select=rowCount` call it starts with. Treat both as untested.
+  The reason the window exists — `Snapshots` grows by one row per school per
+  week forever — is the part that carries over to any national design.
 
 ## Git and deploying
 
